@@ -1,0 +1,15 @@
+# Runtime state
+.wiki_watcher_state.json
+.wiki_watcher.pid
+wiki_watcher.log
+
+# Local knowledge base content
+wiki/
+raw/sources/
+raw/assets/
+raw/clips/
+
+# System files
+.DS_Store
+*.swp
+*.tmp
