@@ -9,6 +9,9 @@ raw/sources/
 raw/assets/
 raw/clips/
 
+# Claude Code local settings
+.claude/
+
 # System files
 .DS_Store
 *.swp
