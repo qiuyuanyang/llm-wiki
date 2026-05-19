@@ -151,3 +151,4 @@ Bug reports and feature requests are welcome via GitHub Issues.
 ## License
 
 This project is released under the [MIT License](LICENSE).
+
