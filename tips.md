@@ -1,141 +1,167 @@
-# LLM Wiki — Maintenance Manual
+# LLM Wiki — 维护手册
 
 ---
 
-## Directory Structure
+## 目录结构
 
 ```
-llm-wiki/                        ← Obsidian Vault root (open this directory)
-├── LLM.md                       ← LLM Agent operating instructions (core — do not modify casually)
-├── wiki_config.json             ← Active model configuration
-├── wiki.sh                      ← Unified CLI entry point for all operations
+llm-wiki/                        ← Obsidian Vault 根目录（打开此目录）
+├── LLM.md                       ← LLM Agent 操作指南（核心 — 不要随意修改）
+├── wiki_config.json             ← 当前模型配置
+├── wiki.sh                      ← 统一 CLI 入口
 │
-├── wiki/                        ← LLM writes, you read
-│   ├── index.md                 ← Content index (auto-updated on every ingest)
-│   ├── log.md                   ← Operation log (append-only)
-│   ├── overview.md              ← Global knowledge synthesis
-│   ├── dashboard.md             ← Dataview dynamic dashboard
-│   ├── entities/                ← People / organisations / products
-│   ├── concepts/                ← Terms / theories / methods
-│   ├── sources/                 ← Per-source summary pages (1 : 1 with raw/)
-│   ├── queries/                 ← Archived high-value Q&A
-│   └── comparisons/             ← Comparative analysis tables
+├── wiki/                        ← LLM 生成内容（你只需阅读）
+│   ├── index.md                 ← 内容索引（每次导入自动更新）
+│   ├── log.md                   ← 操作日志（只追加）
+│   ├── overview.md              ← 全局知识综合
+│   ├── entities/                ← 人物 / 组织 / 产品
+│   ├── concepts/                ← 术语 / 理论 / 方法
+│   ├── infrastructure/          ← 服务器 / 交换机 / 防火墙 / 数据库 / 服务
+│   ├── sources/                 ← 源文档摘要（与 raw/sources/ 一一对应）
+│   ├── queries/                 ← 高价值问答归档
+│   ├── comparisons/             ← 对比分析
+│   └── diagnoses/               ← 故障诊断页面
 │
-├── raw/                         ← You place files; LLM reads (read-only — do not modify)
-│   ├── sources/                 ← Source materials (placing files here triggers ingest)
-│   ├── assets/                  ← Image attachments
-│   └── clips/                   ← Obsidian Web Clipper output
+├── raw/                         ← 你放文件，LLM 读取（只读 — 不修改）
+│   ├── sources/                 ← 源材料（放文件到这里触发导入）
+│   ├── assets/                  ← 图片附件
+│   └── clips/                   ← Obsidian Web Clipper 输出
 │
-├── templates/                   ← Obsidian Templater templates
-└── scripts/                     ← Automation scripts
-    ├── wiki_watcher.py          ← Daemon (watches raw/ and auto-processes new files)
-    ├── ingest.sh                ← Manual ingest helper
-    ├── stats.sh                 ← Statistics and health checks
-    └── search.sh                ← Local full-text search
+├── templates/                   ← Obsidian Templater 模板
+└── scripts/                     ← 自动化脚本
+    ├── wiki_watcher.py          ← 守护进程（监控 raw/ 自动处理）
+    ├── vector_ingest.py         ← 生成向量嵌入
+    ├── query_engine.py          ← 智能问答（向量搜索 + LLM）
+    ├── diagnosis_engine.py      ← 故障诊断知识引擎（支持语义搜索）
+    ├── graph_viz.py             ← D3 拓扑图生成器
+    ├── web_ui.py                ← Web 界面
+    ├── stats.sh                 ← 统计和健康检查
+    ├── search.sh                ← 全文搜索
+    └── templates/               ← Web 页面模板
 ```
 
 ---
 
-## First-Time Setup
+## 首次设置
 
-**1. Open the project root as an Obsidian Vault** (not the `wiki/` subdirectory)
+**1. 将项目根目录作为 Obsidian Vault 打开**（不是 `wiki/` 子目录）
 
 ```
-Obsidian → Open Vault → select llm-wiki/
+Obsidian → 打开 Vault → 选择 llm-wiki/
 ```
 
-`.obsidian/` is pre-configured: attachments → `raw/assets/`, templates → `templates/`, graph colours set.
+`.obsidian/` 已预配置：附件 → `raw/assets/`，模板 → `templates/`，图颜色已设置。
 
-**2. Install Obsidian plugins** (Settings → Community plugins)
+**2. 安装 Obsidian 插件**（设置 → 社区插件）
 
-| Plugin        | Purpose                          | Priority    |
-|---------------|----------------------------------|-------------|
-| **Dataview**  | Dynamic tables in `dashboard.md` | Required    |
-| **Templater** | Quickly create conformant pages  | Required    |
-| Obsidian Git  | Automatic backup                 | Recommended |
+| 插件        | 用途                          | 优先级    |
+|---------------|------------------------------|-------------|
+| **Dataview**  | `dashboard.md` 动态表格       | 必需        |
+| **Templater** | 快速创建符合规范的页面        | 必需        |
+| Obsidian Git  | 自动备份                      | 推荐        |
 
 ---
 
-## Three Operating Modes
+## 三种运行模式
 
-### Mode A: Manual (full control — best for important materials)
+### 模式 A：手动（完全控制 — 适合重要文档）
 
 ```bash
-bash scripts/ingest.sh ~/Downloads/paper.pdf
-# → Prints a prompt to copy-paste to your LLM Agent
+./wiki.sh ingest ~/Downloads/文档.pdf
+# → 打印提示，复制给 LLM Agent
 ```
 
-### Mode B: Foreground (visible real-time processing logs)
+### 模式 B：前台（实时日志可见）
 
 ```bash
 ./wiki.sh start
-# Drop a file into raw/sources/ → auto-processed, terminal shows findings summary
+# 放文件到 raw/sources/ → 自动处理，终端显示处理结果
 ```
 
-### Mode C: Background daemon (fully automatic — recommended for daily use)
+### 模式 C：后台守护进程（全自动 — 日常推荐）
 
 ```bash
-./wiki.sh daemon    # Start in background
-./wiki.sh status    # Check status
-./wiki.sh stop      # Stop daemon
+./wiki.sh daemon    # 后台启动
+./wiki.sh status    # 查看状态
+./wiki.sh stop      # 停止
 ```
 
-Install dependencies (required for Mode B / C only):
+或使用一键脚本：
 
 ```bash
-pip install anthropic openai watchdog rich pdfplumber
+./llm-wiki-start.sh    # 一键启动所有服务
+./llm-wiki-stop.sh     # 一键停止所有服务
+```
+
+安装依赖（仅模式 B/C 需要）：
+
+```bash
+pip install anthropic openai watchdog rich flask pdfplumber
 ```
 
 ---
 
-## Core Operations
+## 核心操作
 
-### INGEST — Process new source material
+### 导入 — 处理新文档
 
-Tell your LLM Agent: `Please process raw/sources/xxx.md`
+告诉 LLM Agent：`请处理 raw/sources/xxx.md`
 
-The LLM will: read → report 3–5 key findings → create summary page → update entity/concept pages → update `index.md` and `log.md`
+LLM 会：读取 → 报告 3-5 个关键发现 → 创建摘要页面 → 更新实体/概念页面 → 更新 `index.md` 和 `log.md` → 自动同步向量索引
 
-### QUERY — Ask a question
+### 查询 — 提问
 
-Ask the LLM Agent directly. It will read `index.md` to find relevant pages, synthesise an answer, and ask whether to archive it to `wiki/queries/`.
+直接向 LLM Agent 提问。它会读取 `index.md` 找到相关页面，综合回答，并询问是否归档到 `wiki/queries/`。
 
-### LINT — Health check
+也可以用命令行：
+
+```bash
+./wiki.sh query "web-server-01 的 IP 地址是多少？"
+./wiki.sh search-v "防火墙规则"          # 仅向量搜索
+```
+
+### 搜索 — 语义 + 关键词
+
+```bash
+./wiki.sh search "关键词"                # 全文搜索
+./wiki.sh diagnose search "问题描述"    # 语义搜索故障诊断
+```
+
+### 健康检查
 
 ```bash
 ./wiki.sh lint
-# Then tell your LLM Agent: "Please run a LINT health check"
+# 然后告诉 LLM Agent："请运行 LINT 健康检查"
 ```
 
 ---
 
-## Model Configuration
+## 模型配置
 
-Model configuration is stored in `wiki_config.json` and switched via `./wiki.sh model` — no code changes needed.
+模型配置存储在 `wiki_config.json` 中，通过 `./wiki.sh model` 切换 — 无需修改代码。
 
-### Switch commands
+### 切换命令
 
 ```bash
-./wiki.sh model                               # Show current model
-./wiki.sh model anthropic,claude-opus-4-6    # Anthropic official
-./wiki.sh model anthropic,claude-sonnet-4-6  # Faster and more cost-effective
-./wiki.sh model local,Qwen3.6-35B-A3B-FP8   # Local Ollama / vLLM
-./wiki.sh model dashscope,qwen-max           # Alibaba Cloud DashScope
-./wiki.sh model openai,gpt-4o               # OpenAI
+./wiki.sh model                                # 查看当前模型
+./wiki.sh model local,Qwen3.6-35B-A3B-FP8     # 本地 Ollama / vLLM
+./wiki.sh model dashscope,qwen-max            # 阿里云 DashScope
+./wiki.sh model anthropic,claude-sonnet-4-6  # Anthropic
+./wiki.sh model openai,gpt-4o                # OpenAI
 ```
 
-### Built-in Providers
+### 内置提供商
 
-| Provider    | API Endpoint                  | Credential env var      |
-|-------------|-------------------------------|-------------------------|
-| `anthropic` | Anthropic official            | `ANTHROPIC_API_KEY`     |
-| `local`     | `http://localhost:11434/v1`   | None (Ollama default)   |
-| `dashscope` | DashScope compatible endpoint | `DASHSCOPE_API_KEY`     |
-| `openai`    | OpenAI official               | `OPENAI_API_KEY`        |
+| 提供商    | API 端点                      | 环境变量          |
+|-------------|-------------------------------|-------------------|
+| `anthropic` | Anthropic 官方                | `ANTHROPIC_API_KEY` |
+| `local`     | `http://localhost:11434/v1`   | 无（Ollama 默认） |
+| `dashscope` | DashScope 兼容端点            | `DASHSCOPE_API_KEY` |
+| `openai`    | OpenAI 官方                   | `OPENAI_API_KEY`  |
 
-### Adding a custom provider
+### 添加自定义提供商
 
-Edit `wiki_config.json`, add an entry under `providers`:
+编辑 `wiki_config.json`，在 `providers` 下添加：
 
 ```json
 "minimax": {
@@ -144,39 +170,51 @@ Edit `wiki_config.json`, add an entry under `providers`:
 }
 ```
 
-Then `./wiki.sh model minimax,abab7-chat-preview` takes effect immediately.
+然后 `./wiki.sh model minimax,abab7-chat-preview` 立即生效。
 
 ---
 
-## Link Conventions
+## 链接规范
 
-The Vault root is the project root. Internal links must include the `wiki/` prefix:
+Vault 根目录是项目根目录。内部链接必须包含 `wiki/` 前缀：
 
 ```
-Correct: [[wiki/entities/geoffrey-hinton|Geoffrey Hinton]]
-Correct: [[wiki/concepts/attention-mechanism]]
-Wrong:   [[entities/geoffrey-hinton]]
+正确：[[wiki/entities/geoffrey-hinton|Geoffrey Hinton]]
+正确：[[wiki/concepts/attention-mechanism]]
+错误：  [[entities/geoffrey-hinton]]
 ```
 
 ---
 
-## Periodic Maintenance
+## 定期维护
 
-| Frequency          | Action                                                              |
+| 频率          | 操作                                                              |
 |--------------------|---------------------------------------------------------------------|
-| Every new source   | `./wiki.sh ingest <file>` → paste prompt to LLM Agent             |
-| Weekly             | `./wiki.sh lint` → ask LLM Agent to fix reported issues            |
-| Monthly            | `./wiki.sh hotspot` → generate knowledge hotspot analysis           |
+| 每次新源文档   | 放入 `raw/sources/` → LLM 自动处理并同步向量 |
+| 每周             | `./wiki.sh lint` → 让 LLM Agent 修复报告的问题 |
+| 每月             | `./wiki.sh hotspot` → 生成知识热点分析 |
 
 ---
 
-## Quick Reference
+## 快速参考
 
 ```bash
-./wiki.sh ingest <file|URL>   # Import source material
-./wiki.sh model [SPEC]        # View / switch model
-./wiki.sh stats               # Wiki statistics
-./wiki.sh lint                # Health check
-./wiki.sh search "keyword"    # Search wiki
-./wiki.sh hotspot             # Hotspot analysis
+./llm-wiki-start.sh                # 一键启动所有服务
+./llm-wiki-stop.sh                 # 一键停止所有服务
+./wiki.sh daemon                   # 后台守护进程
+./wiki.sh status                   # 查看状态和模型
+./wiki.sh ingest <file|URL>       # 导入源材料
+./wiki.sh model [SPEC]            # 查看/切换模型
+./wiki.sh stats                   # wiki 统计
+./wiki.sh lint                    # 健康检查
+./wiki.sh search "关键词"          # 全文搜索
+./wiki.sh query <问题>             # 智能问答
+./wiki.sh search-v <关键词>        # 仅向量搜索
+./wiki.sh embed                   # 生成向量嵌入
+./wiki.sh reindex                 # 完全重建索引
+./wiki.sh diagnose scan           # 扫描诊断三元组
+./wiki.sh diagnose search "问题"   # 语义搜索故障
+./wiki.sh web                     # 启动 Web UI（端口 5000）
+./wiki.sh graph                   # 生成拓扑图
+./wiki.sh hotspot                 # 热点分析
 ```

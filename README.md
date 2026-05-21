@@ -1,199 +1,186 @@
-# LLM Wiki — Infrastructure Knowledge Base
+# LLM Wiki — 基础设施知识库
 
-A personal knowledge base for IT operations & infrastructure, built on the pattern established by Andrej Karpathy's [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
+基于 Andrej Karpathy 的 [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 模式构建的 IT 运维知识库系统。
 
-An LLM Agent automatically ingests raw source materials, maintains a structured wiki with vector embeddings, and answers questions by synthesizing knowledge across pages.
-
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Directory Structure](#directory-structure)
-- [Workflows](#workflows)
-- [New Features](#new-features)
-- [Model Configuration](#model-configuration)
-- [Environment Variables](#environment-variables)
-- [Scripts Reference](#scripts-reference)
-- [Contributing](#contributing)
-- [License](#license)
+LLM Agent 自动将原始文档转化为结构化 wiki，支持语义搜索和智能问答。
 
 ---
 
-## Quick Start
+## 快速开始
 
 ```bash
-# 1. Clone the repo and open the project root as an Obsidian Vault (not wiki/)
-# 2. Place raw source materials into raw/sources/
-# 3. Start the watcher daemon (auto-processes new files)
-./wiki.sh daemon
+# 1. 将项目克隆并作为 Obsidian Vault 打开（打开项目根目录，不是 wiki/）
+# 2. 将文档放入 raw/sources/
+# 3. 启动守护进程（自动处理新文件）
+./llm-wiki-start.sh
 
-# Or ingest a single file manually
-./wiki.sh ingest ~/Downloads/paper.pdf
+# 或手动导入单个文件
+./wiki.sh ingest ~/Downloads/文档.pdf
 
-# Generate vector embeddings (requires embedding model running)
+# 生成向量索引（需要 embedding 模型运行中）
 ./wiki.sh embed
 
-# Ask a question
-./wiki.sh query "What is the IP of web-server-01?"
+# 提问
+./wiki.sh query "web-server-01 的 IP 地址是多少？"
 ```
 
-Install Python dependencies (required for daemon / foreground modes):
+安装 Python 依赖：
 
 ```bash
-pip install anthropic openai watchdog rich pdfplumber
+pip install anthropic openai watchdog rich flask pdfplumber
 ```
-
-Full usage details are in [`tips.md`](tips.md).
 
 ---
 
-## Directory Structure
+## 目录结构
 
 ```
 .
-├── LICENSE                    # MIT License
-├── README.md                  # This file
-├── wiki_config.json           # Model configuration (provider / model selection)
-├── config.py                  # Centralised config (env vars + JSON)
-├── wiki.sh                    # Unified CLI entry point
-├── tips.md                    # Full maintenance manual
-├── LLM.md                     # LLM Agent operating instructions (auto-loaded)
+├── LICENSE                    # MIT 许可证
+├── README.md                  # 本文件
+├── wiki_config.json           # 模型配置（提供商 / 模型选择）
+├── config.py                  # 集中配置（环境变量 + JSON）
+├── wiki.sh                    # 统一 CLI 入口
+├── LLM.md                     # LLM Agent 操作指南（自动加载）
 │
-├── wiki/                      # LLM-generated content (treat as read-only)
-│   ├── index.md               # Content index — updated on every ingest
-│   ├── log.md                 # Operation log (append-only)
-│   ├── overview.md            # Global knowledge synthesis
-│   ├── dashboard.md           # Dataview dynamic dashboard
-│   ├── entities/              # People, organisations, products
-│   ├── concepts/              # Terms, theories, methods
-│   ├── infrastructure/        # Servers, switches, firewalls, databases, services
-│   ├── sources/               # Per-source summary pages (1 : 1 with raw/)
-│   ├── queries/               # Archived high-value Q&A
-│   ├── comparisons/           # Comparative analyses
-│   └── topology.html          # Interactive D3 topology graph (generated)
+├── llm-wiki-start.sh          # 一键启动脚本
+├── llm-wiki-stop.sh           # 一键停止脚本
 │
-├── raw/                       # Source materials (read-only — never modified by LLM)
-│   ├── sources/               # Drop files here to trigger ingest
-│   ├── assets/                # Images and attachments
-│   └── clips/                 # Obsidian Web Clipper output
+├── wiki/                      # LLM 生成的 wiki 内容（只读）
+│   ├── index.md               # 内容索引 — 每次导入更新
+│   ├── log.md                 # 操作日志 — 只追加
+│   ├── overview.md            # 全局知识综合
+│   ├── entities/              # 人物、组织、产品、地点
+│   ├── concepts/              # 术语、理论、方法、框架
+│   ├── infrastructure/        # 服务器、交换机、防火墙、数据库、服务
+│   ├── sources/               # 源文档摘要页面（与 raw/sources/ 一一对应）
+│   ├── queries/               # 高价值问答归档
+│   ├── comparisons/           # 对比分析
+│   └── diagnoses/             # 故障诊断页面
 │
-├── diagnoses/                 # Fault diagnosis knowledge base
+├── raw/                       # 源材料（只读 — LLM 不会修改）
+│   ├── sources/               # 放文档到这里触发导入
+│   ├── assets/                # 图片和附件
+│   └── clips/                 # Obsidian Web Clipper 输出
 │
-├── templates/                 # Obsidian Templater templates
-│   ├── infrastructure-template.md  # NEW: Infrastructure component template
-│   └── ...
+├── scripts/                   # 自动化工具
+│   ├── wiki_watcher.py        # 守护进程（监控 raw/ 自动导入）
+│   ├── vector_ingest.py       # 生成向量嵌入
+│   ├── query_engine.py        # 智能问答（向量搜索 + LLM）
+│   ├── diagnosis_engine.py    # 故障诊断知识引擎（支持语义搜索）
+│   ├── graph_viz.py           # D3 拓扑图生成器
+│   ├── web_ui.py              # Web 界面
+│   ├── stats.sh               # 统计和健康检查
+│   ├── search.sh              # 全文搜索
+│   └── templates/             # Web 页面模板
 │
-├── scripts/                   # Automation tools
-│   ├── wiki_watcher.py        # Daemon process (watches raw/ and auto-ingests)
-│   ├── vector_ingest.py       # NEW: Generate vector embeddings for wiki pages
-│   ├── query_engine.py        # NEW: Intelligent Q&A (vector search + LLM)
-│   ├── graph_viz.py           # NEW: D3 topology graph generator
-│   ├── diagnosis_engine.py    # NEW: Fault diagnosis knowledge engine
-│   ├── ingest.sh              # Manual ingest helper
-│   ├── stats.sh               # Statistics and health checks
-│   └── search.sh              # Local full-text search
-│
-├── vector_store.py            # SQLite-backed vector storage
-├── embedding_client.py        # OpenAI-compatible embedding API client
-└── config.py                  # Centralised configuration (env vars / JSON)
+├── vector_store.py            # SQLite 向量存储
+├── embedding_client.py        # OpenAI 兼容 embedding API 客户端
+└── templates/                 # Obsidian Templater 模板
+    └── infrastructure-template.md  # 基础设施组件模板
 ```
 
 ---
 
-## Workflows
+## 工作流程
 
-| Action  | You do                                           | LLM does                                                    |
+| 操作  | 你做的                                           | LLM 做的                                                    |
 |---------|--------------------------------------------------|-------------------------------------------------------------|
-| Ingest  | `./wiki.sh ingest <file>` or tell the LLM Agent | Reads, distils, updates 10-15 pages                         |
-| Query   | Ask the LLM Agent a question                     | Reads index → dives into relevant pages → synthesises answer; optionally archives |
-| Lint    | `./wiki.sh lint` → paste report to LLM Agent    | Checks for contradictions, orphaned pages, broken links, stale content |
+| 导入  | 放入文件到 `raw/sources/` 或 `./wiki.sh ingest <file>` | 读取、提炼、更新 10-15 个页面，自动同步向量索引 |
+| 查询  | 向 LLM Agent 提问                     | 读取索引 → 深入相关页面 → 综合回答；可选归档 |
+| 搜索  | `./wiki.sh search <关键词>`              | 全文搜索 wiki 内容 |
+| 语义搜索 | `./wiki.sh query <问题>`               | 向量搜索 + LLM 综合回答 |
+| 诊断搜索 | `./wiki.sh diagnose search "问题描述"`     | 语义匹配故障记录（症状 → 原因 → 解决方案） |
 
 ---
 
-## New Features
+## 功能特性
 
-### 🔍 Vector Search & Intelligent Q&A
+### 🔍 语义搜索与智能问答
 
-Semantic search powered by embedding models (e.g. Qwen3-Embedding-8B). Find relevant pages by meaning, not just keywords.
+基于 embedding 模型（如 Qwen3-Embedding-8B）的语义搜索。通过语义含义查找相关页面，不仅是关键词匹配。
 
 ```bash
-# Generate embeddings for all wiki pages
+# 生成所有 wiki 页面的向量索引
 ./wiki.sh embed
 
-# Ask a question — vector search + LLM synthesis
-./wiki.sh query "How to configure MySQL master-slave replication?"
+# 提问 — 向量搜索 + LLM 综合回答
+./wiki.sh query "如何配置 MySQL 主从复制？"
 
-# Vector search only (no LLM)
-./wiki.sh search-v "firewall rules"
+# 仅向量搜索（不调用 LLM）
+./wiki.sh search-v "防火墙规则"
 ```
 
-### 📊 Infrastructure Topology Graph
+### 📊 基础设施拓扑图
 
-Interactive D3 force-directed graph showing dependencies between infrastructure components.
+交互式 D3 力导向图，展示基础设施组件之间的依赖关系。
 
 ```bash
 ./wiki.sh graph
-# Opens wiki/topology.html in browser
+# 生成 wiki/topology.html 在浏览器中打开
 ```
 
-### 🔧 Fault Diagnosis Engine
+### 🔧 故障诊断引擎
 
-Extract and search problem → cause → solution triples from your documentation.
+从文档中自动提取 **问题 → 原因 → 解决方案** 三元组，支持语义搜索。
 
 ```bash
-# Scan sources for diagnosis triples
+# 扫描源文档提取诊断三元组
 ./wiki.sh diagnose scan
 
-# Search for a specific issue
-./wiki.sh diagnose search "MySQL replication lag"
+# 语义搜索故障问题
+./wiki.sh diagnose search "数据库连接断开"
 
-# List all diagnoses
+# 列出所有诊断记录
 ./wiki.sh diagnose list
 
-# Show statistics
+# 查看统计
 ./wiki.sh diagnose stats
 ```
 
-### 🌐 Web UI
+### 🌐 Web 界面
 
-Browse, search, and query the wiki through a web browser.
+通过浏览器浏览、搜索和查询 wiki。
 
 ```bash
-./wiki.sh web              # Start web UI on port 5000
-./wiki.sh web --port 8080  # Custom port
+./wiki.sh web              # 启动 Web UI，端口 5000
+./wiki.sh web --port 8080  # 自定义端口
 ```
 
-Features:
-- 📊 Dashboard with statistics
-- 🔍 Semantic search
-- 🤖 Intelligent Q&A
-- 🔧 Fault diagnosis browser
-- 📊 Interactive topology graph
+功能：
+- 📊 统计仪表板
+- 🔍 语义搜索
+- 🤖 智能问答（Markdown 渲染回答）
+- 🔧 故障诊断浏览器
+- 📊 交互式拓扑图
 
-### 🏗️ Infrastructure Entity Support
+### 🏗️ 基础设施实体支持
 
-New page type for servers, switches, firewalls, databases, services, storage, and monitors. Each component gets its own page with dependencies, IP addresses, and configuration summaries.
+新增基础设施页面类型：服务器、交换机、防火墙、数据库、服务、存储、监控。每个组件有独立页面，包含依赖关系、IP 地址和配置摘要。
 
-Template: `templates/infrastructure-template.md`
+模板：`templates/infrastructure-template.md`
+
+### ⚡ 自动向量同步
+
+每次导入新文档后，系统自动同步向量索引，搜索和问答立即可用。
 
 ---
 
-## Model Configuration
+## 模型配置
 
-Switch the active model at any time — no code changes needed:
+随时切换模型 — 无需修改代码：
 
 ```bash
-./wiki.sh model local,Qwen3.6-35B-A3B-FP8     # Local Ollama / vLLM
-./wiki.sh model dashscope,qwen-max             # Alibaba Cloud DashScope
-./wiki.sh model anthropic,claude-sonnet-4-6   # Anthropic (default)
+./wiki.sh model local,Qwen3.6-35B-A3B-FP8     # 本地 Ollama / vLLM
+./wiki.sh model dashscope,qwen-max             # 阿里云 DashScope
+./wiki.sh model anthropic,claude-sonnet-4-6   # Anthropic（默认）
 ./wiki.sh model openai,gpt-4o                 # OpenAI
 
-# Start daemon and set model in one command
-./wiki.sh daemon model local,Qwen3.6-35B-A3B-FP8
+# 查看当前模型
+./wiki.sh model
 ```
 
-Configuration is persisted in `wiki_config.json`. Add a custom provider by editing the `providers` object:
+配置持久化到 `wiki_config.json`。编辑 `providers` 对象可添加自定义提供商：
 
 ```json
 "minimax": {
@@ -202,100 +189,89 @@ Configuration is persisted in `wiki_config.json`. Add a custom provider by editi
 }
 ```
 
-### Built-in Providers
+### 内置提供商
 
-| Provider    | API Endpoint                  | Credential env var      |
-|-------------|-------------------------------|-------------------------|
-| `anthropic` | Anthropic official            | `ANTHROPIC_API_KEY`     |
-| `local`     | `http://localhost:11434/v1`   | None (Ollama default)   |
-| `dashscope` | DashScope compatible endpoint | `DASHSCOPE_API_KEY`     |
-| `openai`    | OpenAI official               | `OPENAI_API_KEY`        |
-
----
-
-## Environment Variables
-
-All model endpoints and API keys are configured via environment variables — **no secrets are hard-coded**.
-
-### Embedding Model
-
-| Variable | Default | Description |
-|---|---|---|
-| `EMBEDDING_API_BASE_URL` | `http://localhost:8000/v1` | OpenAI-compatible embedding endpoint |
-| `EMBEDDING_MODEL` | `Alibaba-NLP/Qwen3-Embedding-0.6B` | Embedding model name |
-| `EMBEDDING_API_KEY` | (none) | API key for embedding service |
-| `EMBEDDING_DIM` | `1024` | Embedding vector dimension |
-
-### LLM Model
-
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_API_BASE_URL` | `http://localhost:8000/v1` | OpenAI-compatible LLM endpoint |
-| `LLM_MODEL` | `Qwen/Qwen3-32B` | LLM model for INGEST/QUERY/LINT |
-| `LLM_API_KEY` | (none) | API key for LLM service |
-
-### Other
-
-| Variable | Default | Description |
-|---|---|---|
-| `WIKI_ROOT` | `.` (current directory) | Path to wiki root |
-
-You can also configure embedding and LLM settings in `wiki_config.json`:
-
-```json
-{
-  "embedding": {
-    "api_base_url": "http://localhost:8000/v1",
-    "model": "Alibaba-NLP/Qwen3-Embedding-0.6B",
-    "dimension": 1024
-  },
-  "llm": {
-    "api_base_url": "http://localhost:8000/v1",
-    "model": "Qwen/Qwen3-32B"
-  }
-}
-```
-
-Environment variables take precedence over `wiki_config.json`.
+| 提供商    | API 端点                      | 环境变量          |
+|-------------|-------------------------------|-------------------|
+| `anthropic` | Anthropic 官方                | `ANTHROPIC_API_KEY` |
+| `local`     | `http://localhost:11434/v1`   | 无（Ollama 默认） |
+| `dashscope` | DashScope 兼容端点            | `DASHSCOPE_API_KEY` |
+| `openai`    | OpenAI 官方                   | `OPENAI_API_KEY`  |
 
 ---
 
-## Scripts Reference
+## 环境变量
+
+所有模型端点和 API 密钥通过环境变量配置 — **不硬编码密钥**。
+
+### Embedding 模型
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `EMBEDDING_API_BASE_URL` | `http://localhost:8000/v1` | OpenAI 兼容 embedding 端点 |
+| `EMBEDDING_MODEL` | `Qwen3-Embedding-8B` | Embedding 模型名称 |
+| `EMBEDDING_API_KEY` | (无) | Embedding 服务 API 密钥 |
+| `EMBEDDING_DIM` | `4096` | Embedding 向量维度 |
+
+### LLM 模型
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `LLM_API_BASE_URL` | `http://localhost:8000/v1` | OpenAI 兼容 LLM 端点 |
+| `LLM_MODEL` | `Qwen3.6-35B-A3B-FP8` | 导入/查询/检查用 LLM 模型 |
+| `LLM_API_KEY` | (无) | LLM 服务 API 密钥 |
+
+### 其他
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `WIKI_ROOT` | `.`（当前目录） | Wiki 根目录路径 |
+
+---
+
+## 命令参考
 
 ```bash
-./wiki.sh daemon             # Start background daemon (fully automatic mode)
-./wiki.sh start              # Start foreground watcher (real-time logs visible)
-./wiki.sh stop               # Stop background daemon
-./wiki.sh status             # Show running status and active model
-./wiki.sh hotspot            # Generate hotspot analysis immediately
-./wiki.sh ingest <file|URL>  # Manually import a source into raw/sources/
-./wiki.sh stats              # Show wiki statistics
-./wiki.sh lint               # Run health check
-./wiki.sh search <keyword>   # Full-text search across wiki
-./wiki.sh model [SPEC]       # View or switch the active model
+# ── 服务管理 ──
+./llm-wiki-start.sh            # 一键启动所有服务
+./llm-wiki-stop.sh             # 一键停止所有服务
+./wiki.sh daemon               # 启动后台守护进程
+./wiki.sh start                # 启动前台监视器
+./wiki.sh stop                 # 停止守护进程
+./wiki.sh status               # 查看运行状态和当前模型
 
-# New commands
-./wiki.sh embed              # Generate embeddings for all wiki pages
-./wiki.sh reindex            # Full reindex: clear vectors and regenerate
-./wiki.sh query <question>   # Intelligent Q&A (vector search + LLM)
-./wiki.sh search-v <keyword> # Vector search only (no LLM)
-./wiki.sh graph              # Generate topology graph (HTML)
-./wiki.sh diagnose <cmd>     # Diagnosis engine (scan/search/list/stats)
-./wiki.sh web [--port PORT]   # Start web UI (default port 5000)
+# ── 文档处理 ──
+./wiki.sh ingest <file|URL>    # 手动导入源材料
+./wiki.sh stats                # 显示 wiki 统计
+./wiki.sh lint                 # 运行健康检查
+
+# ── 搜索与查询 ──
+./wiki.sh search <关键词>       # 全文搜索
+./wiki.sh query <问题>          # 智能问答（向量搜索 + LLM）
+./wiki.sh search-v <关键词>     # 仅向量搜索（不调用 LLM）
+
+# ── 向量索引 ──
+./wiki.sh embed                # 生成向量嵌入
+./wiki.sh reindex              # 完全重建索引
+
+# ── 故障诊断 ──
+./wiki.sh diagnose scan        # 扫描提取诊断三元组
+./wiki.sh diagnose search "关键词" # 语义搜索故障
+./wiki.sh diagnose list        # 列出所有诊断记录
+./wiki.sh diagnose stats       # 诊断统计
+
+# ── Web UI ──
+./wiki.sh web                  # 启动 Web UI（默认端口 5000）
+./wiki.sh web --port 8080      # 自定义端口
+
+# ── 其他 ──
+./wiki.sh hotspot              # 立即生成热点分析
+./wiki.sh graph                # 生成拓扑图（HTML）
+./wiki.sh model [SPEC]         # 查看或切换当前模型
 ```
 
 ---
 
-## Contributing
+## 许可证
 
-1. Fork the repository and create a feature branch.
-2. Follow the existing code style and keep shell scripts POSIX-compatible where possible.
-3. Submit a pull request with a clear description of the change.
-
-Bug reports and feature requests are welcome via GitHub Issues.
-
----
-
-## License
-
-This project is released under the [MIT License](LICENSE).
+本项目基于 [MIT License](LICENSE) 发布。
