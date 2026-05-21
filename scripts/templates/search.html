@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}搜索 - LLM Wiki{% endblock %}
+{% block content %}
+<h1 style="color: #4fc3f7; margin-bottom: 24px;">🔍 语义搜索</h1>
+
+<form class="search-box" method="get" action="/search">
+    <input type="text" name="q" value="{{ query }}" placeholder="输入关键词，使用语义搜索..." autofocus>
+    <button type="submit">搜索</button>
+</form>
+
+{% if query %}
+<h2 style="color: #81c784; margin-bottom: 16px;">搜索结果: "{{ query }}"</h2>
+
+{% if results %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>相关度</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results %}
+            <tr>
+                <td><a href="/page/{{ r.page_path }}" style="color: #4fc3f7; text-decoration: none;">{{ r.title }}</a></td>
+                <td><span class="badge badge-{{ r.page_type }}">{{ r.page_type }}</span></td>
+                <td>{{ "%.4f"|format(r.score) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: #888;">未找到相关结果。</p>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}故障诊断 - LLM Wiki{% endblock %}
+{% block content %}
+<h1 style="color: #4fc3f7; margin-bottom: 24px;">🔧 故障诊断知识库</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="value">{{ stats.total }}</div>
+        <div class="label">总条目</div>
+    </div>
+    {% for sev, count in stats.by_severity.items() %}
+    <div class="stat-card">
+        <div class="value">{{ count }}</div>
+        <div class="label">{{ sev | title }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="search-box">
+    <input type="text" id="diagSearch" placeholder="搜索故障症状、原因或解决方案...">
+    <button onclick="searchDiagnoses()">搜索</button>
+</div>
+
+<div id="diagResults">
+{% if results %}
+    {% for d in results %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <h3 style="color: #4fc3f7;">{{ d.symptom }}</h3>
+            <span class="badge badge-{{ d.severity }}">{{ d.severity | upper }}</span>
+        </div>
+        {% if d.cause %}
+        <p style="margin-bottom: 8px;"><strong style="color: #81c784;">原因：</strong>{{ d.cause }}</p>
+        {% endif %}
+        {% if d.solution %}
+        <p style="margin-bottom: 8px;"><strong style="color: #ffd54f;">解决方案：</strong>{{ d.solution[:300] }}{% if d.solution|length > 300 %}...{% endif %}</p>
+        {% endif %}
+        <p style="color: #888; font-size: 13px;">
+            来源: {{ d.source_file or d.source_page or '-' }} |
+            状态: {{ d.status }} |
+            更新: {{ d.updated_at[:10] if d.updated_at else '-' }}
+        </p>
+    </div>
+    {% endfor %}
+{% else %}
+    <p style="color: #888;">暂无诊断数据。运行 <code>./wiki.sh diagnose scan</code> 扫描文档。</p>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function searchDiagnoses() {
+    const query = document.getElementById('diagSearch').value.trim();
+    if (!query) return;
+
+    fetch('/api/diagnoses/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query })
+    })
+    .then(r => r.json())
+    .then(data => {
+        let html = '';
+        if (data.length === 0) {
+            html = '<p style="color: #888;">未找到相关诊断。</p>';
+        } else {
+            data.forEach(d => {
+                html += `<div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                        <h3 style="color: #4fc3f7;">${d.symptom}</h3>
+                        <span class="badge badge-${d.severity}">${d.severity.toUpperCase()}</span>
+                    </div>
+                    ${d.cause ? `<p style="margin-bottom: 8px;"><strong style="color: #81c784;">原因：</strong>${d.cause}</p>` : ''}
+                    ${d.solution ? `<p style="margin-bottom: 8px;"><strong style="color: #ffd54f;">解决方案：</strong>${d.solution.substring(0, 300)}${d.solution.length > 300 ? '...' : ''}</p>` : ''}
+                    <p style="color: #888; font-size: 13px;">
+                        来源: ${d.source_file || d.source_page || '-'} |
+                        状态: ${d.status} |
+                        更新: ${(d.updated_at || '').substring(0, 10)}
+                    </p>
+                </div>`;
+            });
+        }
+        document.getElementById('diagResults').innerHTML = html;
+    })
+    .catch(err => alert('搜索失败: ' + err.message));
+}
+
+document.getElementById('diagSearch').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') searchDiagnoses();
+});
+</script>
+{% endblock %}

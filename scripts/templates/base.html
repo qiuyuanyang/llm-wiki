@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LLM Wiki{% endblock %}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 1px solid #2a2a4a;
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #4fc3f7;
+            text-decoration: none;
+        }
+        .logo span { color: #81c784; }
+        .nav { display: flex; gap: 24px; }
+        .nav a {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .nav a:hover, .nav a.active { color: #4fc3f7; }
+
+        /* Cards */
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card:hover { border-color: #3a3a5a; }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #4fc3f7;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Table */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        th {
+            background: #16213e;
+            color: #4fc3f7;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td { font-size: 14px; }
+        tr:hover td { background: #1a1a2e; }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-infrastructure { background: #2e7d32; color: #fff; }
+        .badge-source { background: #1565c0; color: #fff; }
+        .badge-diagnosis { background: #c62828; color: #fff; }
+        .badge-entity { background: #7b1fa2; color: #fff; }
+        .badge-concept { background: #f57c00; color: #fff; }
+        .badge-query { background: #00838f; color: #fff; }
+        .badge-comparison { background: #5d4037; color: #fff; }
+
+        .badge-critical { background: #c62828; color: #fff; }
+        .badge-high { background: #e65100; color: #fff; }
+        .badge-medium { background: #f9a825; color: #333; }
+        .badge-low { background: #43a047; color: #fff; }
+
+        /* Search */
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 12px 16px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 15px;
+            outline: none;
+        }
+        .search-box input:focus { border-color: #4fc3f7; }
+        .search-box button {
+            padding: 12px 24px;
+            background: #4fc3f7;
+            color: #0f0f1a;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .search-box button:hover { background: #29b6f6; }
+
+        /* Query */
+        .query-box {
+            margin-bottom: 24px;
+        }
+        .query-box textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 16px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+        }
+        .query-box textarea:focus { border-color: #4fc3f7; }
+        .query-box button {
+            margin-top: 12px;
+            padding: 12px 32px;
+            background: #81c784;
+            color: #0f0f1a;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .query-box button:hover { background: #66bb6a; }
+
+        /* Answer */
+        .answer-box {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+        .answer-box h3 {
+            color: #4fc3f7;
+            margin-bottom: 16px;
+        }
+        .answer-content {
+            line-height: 1.8;
+        }
+        .answer-content p { margin-bottom: 12px; }
+        .answer-content code {
+            background: #16213e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .answer-content pre {
+            background: #16213e;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        .answer-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .source-list {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #2a2a4a;
+        }
+        .source-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #16213e;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .source-item a { color: #4fc3f7; text-decoration: none; }
+        .source-item a:hover { text-decoration: underline; }
+        .source-score { color: #888; font-size: 13px; }
+
+        /* Page content */
+        .page-content {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 32px;
+            line-height: 1.8;
+        }
+        .page-content h1 { color: #4fc3f7; margin-bottom: 16px; }
+        .page-content h2 { color: #81c784; margin: 24px 0 12px; }
+        .page-content h3 { color: #ffd54f; margin: 20px 0 8px; }
+        .page-content table { margin: 16px 0; }
+        .page-content th { background: #16213e; }
+        .page-content td { border-bottom: 1px solid #2a2a4a; }
+        .page-content blockquote {
+            border-left: 3px solid #4fc3f7;
+            padding-left: 16px;
+            margin: 16px 0;
+            color: #aaa;
+        }
+        .page-content code {
+            background: #16213e;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .page-content pre {
+            background: #16213e;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #2a2a4a;
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 32px 0;
+            color: #555;
+            font-size: 13px;
+            border-top: 1px solid #2a2a4a;
+            margin-top: 40px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header .container { flex-direction: column; gap: 12px; }
+            .nav { gap: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="/" class="logo">📚 LLM <span>Wiki</span></a>
+            <nav class="nav">
+                <a href="/" {% if request.path == '/' %}class="active"{% endif %}>首页</a>
+                <a href="/search" {% if request.path == '/search' %}class="active"{% endif %}>搜索</a>
+                <a href="/query" {% if request.path == '/query' %}class="active"{% endif %}>智能问答</a>
+                <a href="/diagnoses" {% if request.path == '/diagnoses' %}class="active"{% endif %}>故障诊断</a>
+                <a href="/topology" {% if request.path == '/topology' %}class="active"{% endif %}>拓扑图</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container" style="padding-top: 24px; padding-bottom: 24px;">
+        {% block content %}{% endblock %}
+    </div>
+
+    <div class="footer">
+        LLM Wiki — 基础设施知识库
+    </div>
+
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/json.min.js"></script>
+    <script>
+        // Configure marked for proper rendering
+        marked.setOptions({
+            breaks: false,
+            gfm: true,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    try { return hljs.highlight(code, { language: lang }).value; }
+                    catch (e) {}
+                }
+                try { return hljs.highlightAuto(code).value; }
+                catch (e) {}
+                return code;
+            }
+        });
+
+        // Render markdown helper
+        function renderMarkdown(md) {
+            return marked.parse(md || '');
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

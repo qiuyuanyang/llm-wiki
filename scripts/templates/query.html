@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}智能问答 - LLM Wiki{% endblock %}
+{% block content %}
+<h1 style="color: #4fc3f7; margin-bottom: 24px;">🤖 智能问答</h1>
+
+<div class="query-box">
+    <textarea id="question" placeholder="输入你的问题，例如：web-server-01 的 IP 地址是多少？&#10;MySQL 主从复制如何配置？"></textarea>
+    <button onclick="submitQuery()" id="submitBtn">提问</button>
+</div>
+
+<div id="loading" class="loading" style="display: none;">
+    <div class="spinner"></div>
+    <p style="margin-top: 12px;">正在搜索和生成回答...</p>
+</div>
+
+<div id="answer" style="display: none;">
+    <div class="answer-box">
+        <h3>📝 回答</h3>
+        <div class="answer-content" id="answerContent"></div>
+        <div class="source-list" id="sourceList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitQuery() {
+    const question = document.getElementById('question').value.trim();
+    if (!question) return;
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('answer').style.display = 'none';
+    document.getElementById('submitBtn').disabled = true;
+
+    fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: question })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('submitBtn').disabled = false;
+
+        if (data.error) {
+            alert('错误: ' + data.error);
+            return;
+        }
+
+        // Render answer with proper markdown
+        const html = renderMarkdown(data.answer);
+        document.getElementById('answerContent').innerHTML = html;
+
+        // Render sources
+        let sourcesHtml = '<h3 style="color: #81c784; margin-bottom: 12px;">📚 参考来源</h3>';
+        if (data.sources && data.sources.length > 0) {
+            data.sources.forEach(s => {
+                sourcesHtml += `<div class="source-item">
+                    <a href="/page/${s.path}">${s.title}</a>
+                    <span class="source-score">相关度: ${s.score}</span>
+                </div>`;
+            });
+        }
+        document.getElementById('sourceList').innerHTML = sourcesHtml;
+        document.getElementById('answer').style.display = 'block';
+    })
+    .catch(err => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('submitBtn').disabled = false;
+        alert('请求失败: ' + err.message);
+    });
+}
+
+// Ctrl+Enter to submit
+document.getElementById('question').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') submitQuery();
+});
+</script>
+{% endblock %}

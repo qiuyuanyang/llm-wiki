@@ -1,0 +1,35 @@
+# ── SQLite Database ────────────────────────────────────────────
+.wiki_vectors.db
+.wiki_diagnoses.db
+
+# ── Process / Running State ────────────────────────────────────
+.wiki_watcher.pid
+.wiki_watcher_state.json
+.web_ui.pid
+
+# ── Logs ───────────────────────────────────────────────────────
+*.log
+
+# ── Python Cache ──────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ── OS / Editor Temp ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.tmp
+
+# ── Raw Sources (用户文档 — 运行时数据，不提交) ────────────────
+raw/sources/
+raw/assets/
+raw/clips/
+
+# ── Generated Wiki Data (LLM 生成的索引 — 运行时数据，不提交) ──
+wiki/
+
+# ── External Diagnosis Data ───────────────────────────────────
+diagnoses/

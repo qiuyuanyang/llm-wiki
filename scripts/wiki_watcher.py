@@ -30,6 +30,9 @@ from pathlib import Path
 from datetime import datetime
 from queue import Queue, Empty
 
+# Ensure project root is importable for vector_ingest
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 # ── Dependency check ──────────────────────────────────────────────────────────
 try:
     from watchdog.observers import Observer
@@ -315,48 +318,49 @@ class WikiAgent:
         wiki_context = self._read_wiki_context()
         today = datetime.now().strftime('%Y-%m-%d')
 
-        system_prompt = f"""You are a wiki knowledge-base curator Agent.
+        system_prompt = f"""你是 wiki 知识库的管理 Agent。
 
 {self.schema}
 
 ---
-Current task: automatic INGEST of new source material
-Date: {today}
-File: raw/sources/{file_path.name}
+当前任务：自动导入新的源材料
+日期：{today}
+文件：raw/sources/{file_path.name}
 
-Rules:
-1. Your reply must be valid JSON in the format below — nothing else.
-2. All wiki file contents go in the "files" array.
-3. File paths are relative to the wiki root.
-4. You must update wiki/index.md and wiki/log.md.
+规则：
+1. 你的回复必须是以下格式的合法 JSON — 不要有其他内容。
+2. 所有 wiki 文件内容放在 "files" 数组中。
+3. 文件路径相对于 wiki 根目录。
+4. 你必须更新 wiki/index.md 和 wiki/log.md。
+5. **所有生成的内容（标题、描述、总结、解释等）必须使用中文。** 源数据内容（代码、配置、命令、IP地址等）保持原文不变。
 
-Return format (strict JSON, no surrounding text):
+返回格式（严格 JSON，不要包裹其他文本）：
 {{
-  "summary": "One sentence describing the core finding of this ingest",
+  "summary": "一句话描述本次导入的核心发现",
   "files": [
     {{
       "path": "wiki/sources/xxx.md",
       "action": "create",
-      "content": "Full file content including frontmatter"
+      "content": "包含前置元数据的完整文件内容"
     }},
     {{
       "path": "wiki/index.md",
       "action": "update",
-      "content": "Full updated index.md content"
+      "content": "完整的更新后的 index.md 内容"
     }}
   ],
   "new_pages": ["wiki/sources/xxx.md", "wiki/entities/yyy.md"],
   "updated_pages": ["wiki/index.md", "wiki/log.md"],
-  "discoveries": ["Key finding 1", "Key finding 2"],
-  "follow_up_questions": ["Question raised by this material 1", "Question 2"]
+  "discoveries": ["关键发现 1", "关键发现 2"],
+  "follow_up_questions": ["此材料引发的新问题 1", "问题 2"]
 }}"""
 
-        user_message = f"""Please process the following source material and update the wiki:
+        user_message = f"""请处理以下源材料并更新 wiki：
 
-=== Source material ===
+=== 源材料 ===
 {file_content[:8000]}
 
-=== Current wiki state ===
+=== 当前 wiki 状态 ===
 {wiki_context[:4000]}"""
 
         try:
@@ -413,26 +417,26 @@ Return format (strict JSON, no surrounding text):
             if page.name not in ('index.md', 'log.md', 'dashboard.md'):
                 all_pages.append(str(page.relative_to(self.config.wiki_root)))
 
-        system_prompt = f"""You are a wiki knowledge-base analysis Agent. Analyse the current state of the knowledge base and generate a hotspot summary.
+        system_prompt = f"""你是 wiki 知识库分析 Agent。分析当前知识库状态并生成热点摘要。
 
-Return strict JSON:
+返回严格 JSON：
 {{
   "hotspot_page": {{
     "path": "wiki/queries/{today}-hotspot-analysis.md",
-    "content": "Full hotspot analysis Markdown page content (including YAML frontmatter)"
+    "content": "完整的热点分析 Markdown 页面内容（包含 YAML 前置元数据）"
   }},
   "overview_update": {{
     "path": "wiki/overview.md",
-    "content": "Full updated overview.md content"
+    "content": "完整的更新后的 overview.md 内容"
   }},
-  "key_themes": ["Theme 1", "Theme 2", "Theme 3"],
-  "emerging_connections": ["Newly identified conceptual connection 1", "Connection 2"],
-  "recommended_next_sources": ["Suggested type of material to read next"]
+  "key_themes": ["主题 1", "主题 2", "主题 3"],
+  "emerging_connections": ["新发现的概念关联 1", "关联 2"],
+  "recommended_next_sources": ["建议下一步阅读的材料类型"]
 }}"""
 
-        user_message = f"""Analyse the current knowledge base: identify hotspot themes, core concept relationships, and knowledge gaps.
+        user_message = f"""分析当前知识库：识别热点主题、核心概念关系和知识空白。
 
-Current page list:
+当前页面列表：
 {chr(10).join(all_pages[:50])}
 
 {wiki_context[:5000]}"""
@@ -574,6 +578,20 @@ class WikiWatcher:
         self.state["ingest_count"] = self.state.get("ingest_count", 0) + 1
         self.config.save_state(self.state)
 
+    def _sync_vectors(self, written_files: list):
+        """Re-sync vector store after wiki pages are written."""
+        try:
+            from scripts.vector_ingest import ingest_all
+            from config import WikiConfig
+            from embedding_client import EmbeddingClient
+
+            config = WikiConfig()
+            embedding_client = EmbeddingClient(config)
+            result = ingest_all(config, embedding_client, show_progress=False)
+            console.print(f"  [dim]📐 Vectors synced: {result['success']} pages indexed[/dim]")
+        except Exception as e:
+            console.print(f"  [yellow]⚠ Vector sync failed: {e}[/yellow]")
+
     def process_job(self, job_type: str, file_path: Path):
         if job_type == "ingest":
             if self._already_processed(file_path):
@@ -585,6 +603,7 @@ class WikiWatcher:
 
             if written:
                 self._mark_processed(file_path)
+                self._sync_vectors(written)
 
                 if "summary" in result:
                     console.print(Panel(
@@ -601,6 +620,7 @@ class WikiWatcher:
         elif job_type == "hotspot":
             result = self.agent.generate_hotspot_analysis()
             self.writer.apply_hotspot(result)
+            self._sync_vectors([])
             if "key_themes" in result:
                 console.print(Panel(
                     "\n".join(f"• {t}" for t in result.get("key_themes", [])),

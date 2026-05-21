@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}首页 - LLM Wiki{% endblock %}
+{% block content %}
+<h1 style="color: #4fc3f7; margin-bottom: 24px;">📊 知识库概览</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="value">{{ stats.total_pages }}</div>
+        <div class="label">总页面数</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.total_vectors }}</div>
+        <div class="label">向量索引</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.diagnoses }}</div>
+        <div class="label">诊断条目</div>
+    </div>
+    {% for type, count in stats.by_type.items() %}
+    <div class="stat-card">
+        <div class="value">{{ count }}</div>
+        <div class="label">{{ type | title }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 style="color: #81c784; margin: 32px 0 16px;">📄 最近页面</h2>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>分类</th>
+                <th>更新时间</th>
+                <th>大小</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for page in pages[:30] %}
+            <tr>
+                <td><a href="/page/{{ page.path }}" style="color: #4fc3f7; text-decoration: none;">{{ page.name }}</a></td>
+                <td><span class="badge badge-{{ page.type }}">{{ page.type }}</span></td>
+                <td>{{ page.category or page.severity or '-' }}</td>
+                <td>{{ page.updated or '-' }}</td>
+                <td>{{ page.size | filesizeformat }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
