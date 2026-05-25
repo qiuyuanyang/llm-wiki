@@ -1,0 +1,13 @@
+# LLM Wiki - Python Dependencies
+# Auto-generated: 2026-05-25
+
+anthropic
+openai
+watchdog
+rich
+flask
+pdfplumber
+python-docx
+openpyxl
+xlrd
+json-repair

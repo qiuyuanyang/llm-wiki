@@ -27,7 +27,11 @@ LLM Agent 自动将原始文档转化为结构化 wiki，支持语义搜索和�
 安装 Python 依赖：
 
 ```bash
-pip install anthropic openai watchdog rich flask pdfplumber
+# 方式一：使用 requires.txt 一键安装（推荐）
+pip install -r requires.txt
+
+# 方式二：手动安装
+pip install anthropic openai watchdog rich flask pdfplumber python-docx openpyxl xlrd json-repair
 ```
 
 ---
@@ -76,6 +80,7 @@ pip install anthropic openai watchdog rich flask pdfplumber
 │
 ├── vector_store.py            # SQLite 向量存储
 ├── embedding_client.py        # OpenAI 兼容 embedding API 客户端
+├── requires.txt               # Python 依赖清单（pip install -r requires.txt）
 └── templates/                 # Obsidian Templater 模板
     └── infrastructure-template.md  # 基础设施组件模板
 ```
@@ -269,6 +274,27 @@ pip install anthropic openai watchdog rich flask pdfplumber
 ./wiki.sh graph                # 生成拓扑图（HTML）
 ./wiki.sh model [SPEC]         # 查看或切换当前模型
 ```
+
+---
+
+## Python 依赖
+
+所有第三方包已列在 `requires.txt` 中：
+
+| 包 | 用途 |
+|---|---|
+| anthropic | Anthropic Claude API 调用 |
+| openai | OpenAI 兼容 API（含 Embedding） |
+| watchdog | 文件监控（守护进程） |
+| rich | 终端富文本输出 |
+| flask | Web UI 服务框架 |
+| pdfplumber | PDF 文档解析 |
+| python-docx | Word (.docx) 文档解析 |
+| openpyxl | Excel (.xlsx) 文件解析 |
+| xlrd | Excel (.xls) 文件解析 |
+| json-repair | 容错 JSON 解析（修复 LLM 输出） |
+
+安装：`pip install -r requires.txt`
 
 ---
 

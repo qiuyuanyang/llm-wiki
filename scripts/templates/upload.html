@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+{% block title %}源文档管理 - LLM Wiki{% endblock %}
+{% block content %}
+<style>
+    .upload-area {
+        border: 2px dashed #2a2a4a; border-radius: 12px;
+        padding: 48px 24px; text-align: center; background: #1a1a2e;
+        transition: border-color 0.3s, background 0.3s; cursor: pointer; margin-bottom: 24px;
+    }
+    .upload-area:hover, .upload-area.dragover { border-color: #4fc3f7; background: #1e1e34; }
+    .upload-area .icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-area .text { font-size: 16px; color: #aaa; }
+    .upload-area .text strong { color: #4fc3f7; cursor: pointer; }
+    .upload-area .hint { font-size: 13px; color: #666; margin-top: 8px; }
+
+    /* Search bar */
+    .source-search-bar {
+        display: flex; gap: 12px; margin-bottom: 20px; align-items: center;
+    }
+    .source-search-bar .search-input {
+        flex: 1; padding: 10px 16px; background: #1a1a2e;
+        border: 1px solid #2a2a4a; border-radius: 8px; color: #e0e0e0;
+        font-size: 14px; outline: none;
+    }
+    .source-search-bar .search-input:focus { border-color: #4fc3f7; }
+    .source-search-bar .search-btn {
+        padding: 10px 24px; background: #4fc3f7; color: #0f0f1a;
+        border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+        cursor: pointer; white-space: nowrap;
+    }
+    .source-search-bar .search-btn:hover { background: #29b6f6; }
+    .source-search-bar .search-btn.clear-btn {
+        background: #555; color: #e0e0e0;
+    }
+    .source-search-bar .search-btn.clear-btn:hover { background: #666; }
+
+    .file-list-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    .file-list-header h2 { color: #81c784; margin: 0; }
+    .file-count { color: #888; font-size: 14px; }
+
+    .file-card {
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px 8px 0 0;
+        padding: 16px 20px; margin-bottom: 0; display: flex; align-items: center; gap: 16px;
+        transition: border-color 0.2s;
+    }
+    .file-card.processing { border-color: #f9a825; background: #1e1e34; }
+    .file-icon { font-size: 28px; flex-shrink: 0; width: 40px; text-align: center; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 15px; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { display: flex; gap: 16px; margin-top: 4px; font-size: 13px; color: #888; }
+    .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .btn {
+        padding: 8px 16px; border: none; border-radius: 6px;
+        font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: background 0.2s; text-decoration: none;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-view { background: #1565c0; color: #fff; }
+    .btn-view:hover { background: #1976d2; }
+    .btn-delete { background: #c62828; color: #fff; }
+    .btn-delete:hover { background: #d32f2f; }
+    .btn-download { background: #00838f; color: #fff; }
+    .btn-download:hover { background: #0097a7; }
+    .btn-ingest { background: #2e7d32; color: #fff; }
+    .btn-ingest:hover { background: #388e3c; }
+    .btn-reprocess { background: #6a1b9a; color: #fff; }
+    .btn-reprocess:hover { background: #7b1fa2; }
+
+    /* Preview panel */
+    .file-preview-panel {
+        background: #16213e; border: 1px solid #2a2a4a; border-top: none;
+        border-radius: 0 0 8px 8px; padding: 24px; margin-bottom: 12px;
+        display: none; animation: slideDown 0.2s ease;
+    }
+    .file-preview-panel.active { display: block; }
+    @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    .file-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .file-preview-header h3 { color: #4fc3f7; margin: 0; }
+    .btn-close { background: none; border: none; color: #888; font-size: 20px; cursor: pointer; }
+    .btn-close:hover { color: #e0e0e0; }
+    .preview-raw { white-space: pre-wrap; font-family: 'Fira Code', Consolas, monospace; font-size: 13px; line-height: 1.6; color: #ccc; max-height: 600px; overflow: auto; }
+    .preview-md { max-height: 600px; overflow: auto; padding: 16px; background: #1a1a2e; border-radius: 8px; line-height: 1.8; }
+    .preview-md h1 { color: #4fc3f7; font-size: 24px; margin: 0 0 12px; border-bottom: 1px solid #2a2a4a; padding-bottom: 8px; }
+    .preview-md h2 { color: #81c784; font-size: 20px; margin: 20px 0 10px; }
+    .preview-md h3 { color: #ffd54f; font-size: 17px; margin: 16px 0 8px; }
+    .preview-md h4,.preview-md h5,.preview-md h6 { color: #aaa; margin: 12px 0 6px; }
+    .preview-md p { margin: 8px 0; color: #ddd; }
+    .preview-md a { color: #4fc3f7; }
+    .preview-md a:hover { text-decoration: underline; }
+    .preview-md code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #e6edf3; }
+    .preview-md pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+    .preview-md pre code { background: none; padding: 0; font-size: 13px; color: #c9d1d9; }
+    .preview-md ul,.preview-md ol { padding-left: 24px; margin: 8px 0; color: #ddd; }
+    .preview-md li { margin: 4px 0; }
+    .preview-md blockquote { border-left: 3px solid #4fc3f7; padding-left: 16px; margin: 12px 0; color: #aaa; }
+    .preview-md table { border-collapse: collapse; margin: 12px 0; }
+    .preview-md th,.preview-md td { padding: 6px 12px; border: 1px solid #2a2a4a; }
+    .preview-md th { background: #1a1a2e; color: #4fc3f7; }
+    .preview-md td { color: #ddd; }
+    .preview-md hr { border: none; border-top: 1px solid #2a2a4a; margin: 16px 0; }
+    .preview-md img { max-width: 100%; border-radius: 8px; }
+    .preview-md strong { color: #e0e0e0; }
+    .preview-md em { color: #aaa; }
+
+    /* Search result highlight */
+    .search-result-item { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
+
+    /* Pagination */
+    .pagination {
+        display: flex; justify-content: center; align-items: center; gap: 8px;
+        margin-top: 24px; padding: 16px 0;
+    }
+    .pagination .page-btn {
+        padding: 8px 14px; background: #1a1a2e; border: 1px solid #2a2a4a;
+        border-radius: 6px; color: #aaa; font-size: 13px; cursor: pointer;
+        transition: all 0.2s; min-width: 36px; text-align: center;
+    }
+    .pagination .page-btn:hover:not(.active):not(.disabled) { background: #2a2a4a; color: #e0e0e0; }
+    .pagination .page-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
+    .pagination .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+    .pagination .page-info { color: #888; font-size: 13px; margin: 0 12px; }
+    .pagination .page-info:last-of-type { margin-right: 4px; }
+
+    .toast-container { position: fixed; top: 80px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .toast-success { background: #2e7d32; } .toast-error { background: #c62828; } .toast-info { background: #1565c0; }
+    @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+    .progress-bar { width: 100%; height: 4px; background: #2a2a4a; border-radius: 2px; overflow: hidden; margin-top: 12px; display: none; }
+    .progress-bar.active { display: block; }
+    .progress-bar .fill { height: 100%; background: #4fc3f7; transition: width 0.3s; width: 0%; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+</style>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Upload Area -->
+<div class="upload-area" id="uploadArea">
+    <div class="icon">📤</div>
+    <div class="text">拖拽文件到此处，或 <strong id="fileInputBtn">点击选择文件</strong></div>
+    <div class="hint">支持 .md, .txt, .json, .yaml, .yml, .py, .sh, .sql, .conf, .pdf, .doc, .docx, .xls, .xlsx 等格式（可多文件上传）</div>
+    <div class="hint" style="margin-top:4px;color:#f9a825">⚡ 上传后自动触发 LLM 处理 → Wiki 写入 → 向量同步</div>
+    <input type="file" id="fileInput" multiple accept=".md,.txt,.json,.yaml,.yml,.py,.sh,.sql,.conf,.cfg,.ini,.csv,.log,.xml,.html,.css,.js,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
+    <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+</div>
+
+<!-- Search Bar -->
+<div class="source-search-bar">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名或内容..." onkeydown="if(event.key==='Enter')doSearch()">
+    <button class="search-btn" onclick="doSearch()">🔍 搜索</button>
+    <button class="search-btn clear-btn" onclick="clearSearch()">✕ 清除</button>
+    <select id="perPageSelect" onchange="changePerPage()" style="padding:8px 12px;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:6px;color:#aaa;font-size:13px;cursor:pointer;">
+        <option value="5">5条/页</option>
+        <option value="10">10条/页</option>
+        <option value="20">20条/页</option>
+        <option value="50">50条/页</option>
+    </select>
+</div>
+
+<!-- File List Header -->
+<div class="file-list-header">
+    <h2>📂 已上传源文档</h2>
+    <span class="file-count" id="fileCount">加载中...</span>
+</div>
+
+<div id="fileList">
+    <div class="loading"><div class="spinner"></div><span style="margin-left:12px">加载中...</span></div>
+</div>
+
+<!-- Pagination -->
+<div class="pagination" id="pagination"></div>
+
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const fileInputBtn = document.getElementById('fileInputBtn');
+const progressBar = document.getElementById('progressBar');
+const progressFill = document.getElementById('progressFill');
+const toastContainer = document.getElementById('toastContainer');
+const searchInput = document.getElementById('searchInput');
+
+// State
+let currentPage = 1;
+let perPage = 5;
+
+fileInputBtn.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('click', (e) => { if (e.target !== fileInputBtn) fileInput.click(); });
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files); });
+fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) handleUpload(fileInput.files); });
+
+async function handleUpload(files) {
+    const allowedExts = ['.md','.txt','.json','.yaml','.yml','.py','.sh','.sql','.conf','.cfg','.ini','.csv','.log','.xml','.html','.css','.js','.pdf','.doc','.docx','.xls','.xlsx'];
+    const validFiles = Array.from(files).filter(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        if (!allowedExts.includes(ext)) { showToast(`跳过不支持的文件: ${f.name}`, 'error'); return false; }
+        return true;
+    });
+    if (validFiles.length === 0) return;
+    progressBar.classList.add('active'); progressFill.style.width = '0%';
+    for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
+        const formData = new FormData(); formData.append('file', file);
+        try {
+            const resp = await fetch('/api/sources/upload', { method: 'POST', body: formData });
+            const result = await resp.json();
+            if (resp.ok) showToast(`✅ 已上传: ${file.name}，正在后台处理...`, 'success');
+            else showToast(`❌ 上传失败: ${file.name} - ${result.error}`, 'error');
+        } catch (err) { showToast(`❌ 上传出错: ${file.name}`, 'error'); }
+        progressFill.style.width = `${((i+1)/validFiles.length)*100}%`;
+    }
+    setTimeout(() => { progressBar.classList.remove('active'); progressFill.style.width = '0%'; }, 500);
+    currentPage = 1; loadSourceFiles(); fileInput.value = '';
+}
+
+function doSearch() {
+    currentPage = 1;
+    loadSourceFiles();
+}
+
+function clearSearch() {
+    searchInput.value = '';
+    currentPage = 1;
+    loadSourceFiles();
+}
+
+function changePerPage() {
+    perPage = parseInt(document.getElementById('perPageSelect').value);
+    currentPage = 1;
+    loadSourceFiles();
+}
+
+async function loadSourceFiles() {
+    const listEl = document.getElementById('fileList');
+    const countEl = document.getElementById('fileCount');
+    const keyword = searchInput.value.trim();
+
+    // Loading state
+    listEl.innerHTML = `<div class="loading"><div class="spinner"></div><span style="margin-left:12px">${keyword ? '搜索中...' : '加载中...'}</span></div>`;
+
+    try {
+        const params = new URLSearchParams();
+        params.set('page', currentPage);
+        params.set('per_page', perPage);
+        if (keyword) params.set('keyword', keyword);
+
+        const resp = await fetch(`/api/sources?${params}`);
+        const data = await resp.json();
+        renderFileList(data);
+        // Sync perPage select
+        const sel = document.getElementById('perPageSelect');
+        if (sel && data.per_page) {
+            const opt = sel.querySelector(`option[value="${data.per_page}"]`);
+            if (opt) opt.selected = true;
+        }
+    } catch (err) {
+        listEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    }
+}
+
+
+function renderFileList(data) {
+    const listEl = document.getElementById('fileList');
+    const countEl = document.getElementById('fileCount');
+
+    countEl.textContent = `共 ${data.total} 个文件`;
+
+    if (!data.files || data.files.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>没有找到源文档</p></div>`;
+        renderPagination(data.page, 0);
+        return;
+    }
+
+    listEl.innerHTML = data.files.map(f => {
+        const safeName = escapeHtml(f.name);
+        const encName = encodeURIComponent(f.name);
+
+        // Determine status display
+        let statusHtml;
+        let actionButtons;
+        const downloadBtn = `<a class="btn btn-download" href="/api/sources/${encodeURIComponent(f.name)}/download">📦 下载</a>`;
+
+        if (f.processing) {
+            statusHtml = `<span style="color:#4fc3f7">⚙️ 处理中: ${escapeHtml(f.processing_message || '处理中...')}</span>`;
+            actionButtons = `
+                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                ${downloadBtn}
+                <button class="btn btn-disabled" disabled>🔄 处理中不可用</button>
+                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+        } else if (f.error) {
+            statusHtml = `<span style="color:#ef9a9a">❌ 处理失败: ${escapeHtml(f.error)}</span>`;
+            actionButtons = `
+                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                ${downloadBtn}
+                <button class="btn btn-reprocess" onclick="reprocessFile('${safeName}')">🔄 重新处理</button>
+                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+        } else if (f.ingested) {
+            statusHtml = '<span style="color:#81c784">✅ 已向量化并同步索引</span>';
+            actionButtons = `
+                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                ${downloadBtn}
+                <button class="btn btn-reprocess" onclick="reprocessFile('${safeName}')">🔄 重新处理</button>
+                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+        } else {
+            statusHtml = '<span style="color:#f9a825">⏳ 未处理</span>';
+            actionButtons = `
+                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                ${downloadBtn}
+                <button class="btn btn-ingest" onclick="ingestFile('${safeName}')">📥 向量化</button>
+                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+        }
+
+        return `
+        <div class="file-card" id="file-card-${encName}">
+            <div class="file-icon">${getFileIcon(f.name)}</div>
+            <div class="file-info">
+                <div class="file-name" title="${safeName}">${safeName}</div>
+                <div class="file-meta">
+                    <span>📐 ${formatSize(f.size)}</span>
+                    <span>🕐 ${f.mtime || '-'}</span>
+                    ${statusHtml}
+                </div>
+            </div>
+            <div class="file-actions">
+                ${actionButtons}
+            </div>
+        </div>
+        <div class="file-preview-panel" id="preview-panel-${encName}">
+            <div class="file-preview-header">
+                <h3 id="preview-title-${encName}">预览</h3>
+                <button class="btn-close" onclick="closePreview('${safeName}')">✕</button>
+            </div>
+            <div id="preview-body-${encName}"></div>
+        </div>`;
+    }).join('');
+
+    renderPagination(data.page, data.total_pages);
+}
+
+function renderPagination(page, totalPages) {
+    const container = document.getElementById('pagination');
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    let html = '';
+    // Prev
+    html += `<button class="page-btn ${page <= 1 ? 'disabled' : ''}" onclick="goToPage(${page - 1})">‹</button>`;
+
+    // Page numbers with ellipsis
+    const pages = [];
+    pages.push(1);
+    if (page > 3) pages.push('...');
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+        pages.push(i);
+    }
+    if (page < totalPages - 2) pages.push('...');
+    if (totalPages > 1) pages.push(totalPages);
+
+    // Deduplicate
+    const seen = new Set();
+    for (const p of pages) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        if (p === '...') {
+            html += `<span class="page-info">…</span>`;
+        } else {
+            html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+        }
+    }
+
+    // Next
+    html += `<button class="page-btn ${page >= totalPages ? 'disabled' : ''}" onclick="goToPage(${page + 1})">›</button>`;
+
+    container.innerHTML = html;
+}
+
+function goToPage(p) {
+    currentPage = p;
+    loadSourceFiles();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Preview
+async function togglePreview(filename) {
+    const encName = encodeURIComponent(filename);
+    const panel = document.getElementById(`preview-panel-${encName}`);
+    const titleEl = document.getElementById(`preview-title-${encName}`);
+    const bodyEl = document.getElementById(`preview-body-${encName}`);
+    if (panel && panel.classList.contains('active')) { closePreview(filename); return; }
+    titleEl.textContent = filename;
+    bodyEl.innerHTML = '<div class="loading"><div class="spinner"></div><span style="margin-left:12px">加载中...</span></div>';
+    panel.classList.add('active');
+    try {
+        const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}/content`);
+        const data = await resp.json();
+        if (resp.ok) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (ext === 'md' || data.type === 'pdf' || data.type === 'docx' || data.type === 'doc' || data.type === 'excel') {
+                bodyEl.innerHTML = `<div class="preview-md">${renderMarkdown(data.content)}</div>`;
+            } else {
+                bodyEl.innerHTML = `<pre class="preview-raw">${escapeHtml(data.content)}</pre>`;
+            }
+        } else {
+            bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${data.error}</div>`;
+        }
+    } catch (err) {
+        bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${err}</div>`;
+    }
+}
+function closePreview(filename) {
+    const panel = document.getElementById(`preview-panel-${encodeURIComponent(filename)}`);
+    if (panel) panel.classList.remove('active');
+}
+
+// Ingest status polling — triggers full reload when state changes
+let statusPollInterval = null;
+function startStatusPolling() {
+    if (statusPollInterval) return;
+    statusPollInterval = setInterval(async () => {
+        try {
+            const resp = await fetch('/api/sources/ingest-status');
+            const jobs = await resp.json();
+            let hasRunning = false;
+            for (const [filename, job] of Object.entries(jobs)) {
+                const enc = encodeURIComponent(filename);
+                const card = document.getElementById(`file-card-${enc}`);
+                if (job.status === 'running') {
+                    card?.classList.add('processing'); hasRunning = true;
+                } else if (job.status === 'done' || job.status === 'error') {
+                    card?.classList.remove('processing');
+                    setTimeout(() => { loadSourceFiles(); }, 1000);
+                }
+            }
+            if (!hasRunning) { clearInterval(statusPollInterval); statusPollInterval = null; }
+        } catch (e) {}
+    }, 2000);
+}
+
+async function deleteFile(filename) {
+    if (!confirm(`确定删除源文档 "${filename}"？\n\n同时会删除对应的 wiki 页面和向量索引。`)) return;
+    try {
+        const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (resp.ok) {
+            let msg = `🗑 已删除: ${filename}`;
+            if (data.details && data.details.length > 0) msg += '\n' + data.details.join('\n');
+            showToast(msg, 'success'); loadSourceFiles();
+        } else { showToast(`删除失败: ${data.error}`, 'error'); }
+    } catch (err) { showToast(`删除出错: ${err}`, 'error'); }
+}
+async function ingestFile(filename) {
+    try {
+        const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}/ingest`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) { showToast(`📥 已开始处理: ${filename}`, 'info'); startStatusPolling(); }
+        else { showToast(`处理失败: ${data.error}`, 'error'); }
+    } catch (err) { showToast(`处理出错: ${err}`, 'error'); }
+    loadSourceFiles();
+}
+async function reprocessFile(filename) {
+    if (!confirm(`确定重新处理 "${filename}"？\n\n会先删除现有的 wiki 页面和向量索引，然后重新处理。`)) return;
+    try {
+        const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}/reprocess`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) { showToast(`🔄 正在重新处理: ${filename}`, 'info'); startStatusPolling(); }
+        else { showToast(`重新处理失败: ${data.error}`, 'error'); }
+    } catch (err) { showToast(`重新处理出错: ${err}`, 'error'); }
+    loadSourceFiles();
+}
+
+function getFileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const icons = { md:'📝', txt:'📄', json:'📋', yaml:'⚙️', yml:'⚙️', py:'🐍', sh:'🔧', sql:'🗃', conf:'⚙️', cfg:'⚙️', ini:'⚙️', csv:'📊', log:'📋', xml:'📰', html:'🌐', css:'🎨', js:'📜', pdf:'📕', doc:'📘', docx:'📘', xls:'📗', xlsx:'📗' };
+    return icons[ext] || '📄';
+}
+function formatSize(bytes) {
+    if (!bytes) return '-';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+function escapeHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showToast(msg, type='info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`; toast.textContent = msg;
+    toastContainer.appendChild(toast); setTimeout(() => toast.remove(), 5000);
+}
+function renderMarkdown(md) { try { return marked.parse(md || ''); } catch(e) { return `<pre>${escapeHtml(md || '')}</pre>`; } }
+
+loadSourceFiles();
+</script>
+{% endblock %}

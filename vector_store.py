@@ -85,12 +85,14 @@ class VectorStore:
         conn.commit()
         conn.close()
 
-    def delete_vector(self, page_path: str):
-        """Remove a page's vector embedding."""
+    def delete_vector(self, page_path: str) -> bool:
+        """Remove a page's vector embedding. Returns True if a row was deleted."""
         conn = self._get_conn()
-        conn.execute("DELETE FROM vectors WHERE page_path = ?", (page_path,))
+        cursor = conn.execute("DELETE FROM vectors WHERE page_path = ?", (page_path,))
         conn.commit()
+        deleted = cursor.rowcount > 0
         conn.close()
+        return deleted
 
     def search(self, query_vector: List[float], top_k: int = 10,
                page_type: Optional[str] = None) -> List[Dict]:

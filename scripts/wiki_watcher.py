@@ -50,7 +50,7 @@ except ImportError as e:
 console = Console()
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-SUPPORTED_EXTENSIONS = {'.md', '.txt', '.pdf', '.html', '.rst', '.epub'}
+SUPPORTED_EXTENSIONS = {'.md', '.txt', '.pdf', '.html', '.rst', '.epub', '.doc', '.docx', '.xls', '.xlsx'}
 IGNORE_PATTERNS = {'*.tmp', '*.DS_Store', '.gitkeep', '*.swp', '._*'}
 DEBOUNCE_SECONDS = 3       # wait for file write to complete before processing
 MAX_CONCURRENT_JOBS = 2    # maximum parallel ingest jobs
@@ -281,10 +281,126 @@ class WikiAgent:
                     "`pip install pdfplumber`"
                 )
 
+        if suffix in ('.docx',):
+            try:
+                from docx import Document
+                doc = Document(file_path)
+                parts = []
+                for p in doc.paragraphs:
+                    if p.text.strip():
+                        parts.append(p.text.strip())
+                for table in doc.tables:
+                    parts.append(self._format_table(table.rows))
+                return "\n\n".join(parts)
+            except ImportError:
+                return f"[DOCX file: {file_path.name}]\nNote: install python-docx: `pip install python-docx`"
+
+        if suffix in ('.doc',):
+            # Legacy .doc: try antiword or textract fallback
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['antiword', str(file_path)],
+                    capture_output=True, text=True, timeout=30
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    return result.stdout
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+            return (
+                f"[DOC file: {file_path.name}]\n"
+                "注意: .doc 格式需要安装 antiword (apt install antiword) 才能提取文本。"
+                "建议转换为 .docx 格式。"
+            )
+
+        if suffix in ('.xlsx', '.xls'):
+            try:
+                if suffix == '.xlsx':
+                    import openpyxl
+                    wb = openpyxl.load_workbook(file_path, data_only=True)
+                else:
+                    import xlrd
+                    wb = xlrd.open_workbook(file_path)
+                    return self._read_xls_book(wb)
+
+                parts = []
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    if hasattr(ws, 'max_row'):  # openpyxl
+                        rows = list(ws.iter_rows(values_only=True))
+                    else:
+                        rows = []
+                    parts.append(f"## 工作表: {sheet_name}")
+                    parts.append(self._format_rows(rows))
+                return "\n\n".join(parts)
+            except ImportError:
+                return f"[{suffix.upper()} file: {file_path.name}]\nNote: install openpyxl/xlrd: `pip install openpyxl xlrd`"
+
         try:
             return file_path.read_text(encoding='utf-8')
         except UnicodeDecodeError:
             return file_path.read_text(encoding='latin-1')
+
+    @staticmethod
+    def _format_rows(rows) -> str:
+        """Format rows as a Markdown table."""
+        if not rows:
+            return '_(空工作表)_'
+        # Filter fully empty rows
+        rows = [r for r in rows if any(c is not None and str(c).strip() for c in r)]
+        if not rows:
+            return '_(空工作表)_'
+
+        # Normalize
+        max_cols = max(len(r) for r in rows)
+        normalized = []
+        for r in rows:
+            nr = [str(c) if c is not None else '' for c in r]
+            while len(nr) < max_cols:
+                nr.append('')
+            normalized.append(nr)
+
+        lines = []
+        lines.append('| ' + ' | '.join(normalized[0]) + ' |')
+        lines.append('| ' + ' | '.join('---' for _ in normalized[0]) + ' |')
+        for r in normalized[1:]:
+            lines.append('| ' + ' | '.join(r) + ' |')
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _format_table(rows) -> str:
+        """Format docx Table rows as Markdown table."""
+        if not rows:
+            return ''
+        cells_list = []
+        for row in rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            cells_list.append(cells)
+
+        max_cols = max(len(c) for c in cells_list) if cells_list else 0
+        for cells in cells_list:
+            while len(cells) < max_cols:
+                cells.append('')
+
+        lines = []
+        lines.append('| ' + ' | '.join(cells_list[0]) + ' |')
+        lines.append('| ' + ' | '.join('---' for _ in cells_list[0]) + ' |')
+        for cells in cells_list[1:]:
+            lines.append('| ' + ' | '.join(cells) + ' |')
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _read_xls_book(wb) -> str:
+        """Read xlrd workbook to text."""
+        parts = []
+        for si in range(wb.nsheets):
+            ws = wb.sheet_by_index(si)
+            parts.append(f"## 工作表: {ws.name}")
+            rows = []
+            for r in range(ws.nrows):
+                rows.append([ws.cell_value(r, c) for c in range(ws.ncols)])
+            parts.append(WikiAgent._format_rows(rows))
+        return "\n\n".join(parts)
 
     def _read_wiki_context(self) -> str:
         """Read the current wiki state (index + recent log entries)."""

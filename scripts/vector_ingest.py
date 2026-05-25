@@ -62,6 +62,54 @@ def _title_from_path(file_path: Path) -> str:
     return file_path.stem.replace("-", " ").replace("_", " ").title()
 
 
+def ingest_file(config: WikiConfig, file_path: Path,
+                embedding_client: EmbeddingClient = None) -> bool:
+    """Ingest a raw source file from raw/sources/ into wiki + vector store.
+
+    Reads the raw file, optionally adds frontmatter, copies to wiki/sources/,
+    then generates embedding and stores the vector.
+    """
+    content = file_path.read_text(encoding="utf-8")
+    if not content.strip():
+        return False
+
+    # Determine destination in wiki/sources/
+    dest_name = file_path.name
+    if not dest_name.endswith('.md'):
+        dest_name = file_path.stem.replace(' ', '-').replace('_', '-').lower() + '.md'
+    dest = config.wiki_dir / 'sources' / dest_name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check if already has frontmatter
+    if not content.startswith('---'):
+        # Add minimal frontmatter
+        title = file_path.stem.replace('-', ' ').replace('_', ' ').title()
+        from datetime import datetime
+        fm = f"---\ntitle: {title}\ntype: source\nupdated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\nsource: {file_path.name}\n---\n\n"
+        content = fm + content
+
+    # Copy to wiki/sources
+    dest.write_text(content, encoding='utf-8')
+
+    # Generate embedding and store
+    if embedding_client is None:
+        embedding_client = EmbeddingClient(config)
+
+    store = VectorStore(config)
+    text_content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL)
+    if not text_content:
+        return False
+
+    content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+    page_path = str(dest.relative_to(config.root))
+    page_type = 'source'
+    title = _title_from_path(dest)
+
+    vector = embedding_client.embed_single(text_content)
+    store.upsert_vector(page_path, page_type, title, content_hash, vector)
+    return True
+
+
 def ingest_page(file_path: Path, config: WikiConfig,
                 embedding_client: EmbeddingClient) -> bool:
     """Generate embedding for a single wiki page and store it."""
