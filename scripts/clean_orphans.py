@@ -41,10 +41,9 @@ def main():
         else:
             print("✅ 向量库干净，无需清理")
     else:
+        # --cron 模式：只在有清理动作时输出，避免日志噪音
         if orphaned:
             print(f"[clean_orphans] cleaned {len(orphaned)} orphans: {', '.join(orphaned)}")
-        else:
-            print("[clean_orphans] no orphans found")
 
 
 if __name__ == "__main__":

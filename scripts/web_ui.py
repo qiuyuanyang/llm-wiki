@@ -206,24 +206,48 @@ def strip_frontmatter(content: str) -> str:
 
 
 def parse_frontmatter(content: str) -> dict:
-    """Parse YAML frontmatter."""
+    """Parse YAML frontmatter.
+    Supports: key: value, key: [array], and multi-line list format:
+      key:
+        - item1
+        - item2
+    """
     match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
     if not match:
         return {}
     fm_text = match.group(1)
     fm = {}
+    pending_list_key = None
     for line in fm_text.split('\n'):
-        line = line.strip()
-        if not line or line.startswith('#'):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
             continue
-        m = re.match(r'^(\w+):\s*(.+)$', line)
+        # Check for multi-line list item ("- value" under a known key)
+        if pending_list_key is not None and stripped.startswith('- '):
+            item = stripped[2:].strip().strip('"').strip("'")
+            if item:
+                fm[pending_list_key].append(item)
+            continue
+        # New key: value line (also matches key: with no value for multi-line lists)
+        m = re.match(r'^(\w+):\s*(.*)$', stripped)
         if m:
             key, val = m.group(1), m.group(2).strip()
+            pending_list_key = None  # reset
             if val.startswith('[') and val.endswith(']'):
-                val = [v.strip().strip('"').strip("'") for v in val[1:-1].split(',')]
+                parsed = [v.strip().strip('"').strip("'") for v in val[1:-1].split(',') if v.strip()]
+                fm[key] = parsed
             elif (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                val = val[1:-1]
-            fm[key] = val
+                fm[key] = val[1:-1]
+            else:
+                # Could be a scalar, or the start of a multi-line list (key: on its own)
+                fm[key] = val
+                if val == '' or val == '|':
+                    # Might be a multi-line list following, track the key
+                    pending_list_key = key
+                    fm[key] = []
+        else:
+            # Continuation line or other YAML construct — ignore
+            pass
     return fm
 
 
@@ -536,6 +560,57 @@ def _find_wiki_source_for_raw(raw_filename: str) -> Path | None:
     return None
 
 
+def _source_match_variants(raw_filename: str) -> set:
+    """Generate all possible variants of a raw filename that might appear in frontmatter sources."""
+    from pathlib import Path
+    variants = set()
+    stem = Path(raw_filename).stem
+    variants.add(raw_filename)                      # 小怡家费用.xlsx
+    variants.add(raw_filename + '.md')              # 小怡家费用.xlsx.md
+    variants.add(stem)                              # 小怡家费用
+    variants.add(stem + '.md')                      # 小怡家费用.md
+    variants.add('raw/sources/' + raw_filename)     # raw/sources/小怡家费用.xlsx
+    variants.add('wiki/sources/' + raw_filename)    # wiki/sources/小怡家费用.xlsx
+    variants.add('wiki/sources/' + raw_filename + '.md')  # wiki/sources/小怡家费用.xlsx.md
+    return variants
+
+
+def _source_matches(sources_val, raw_filename: str) -> bool:
+    """Check if a frontmatter 'sources' field references the given raw file.
+
+    Handles various formats:
+    - YAML array: ["小怡家费用.xlsx.md"]
+    - YAML array with paths: ["raw/sources/小怡家费用.xlsx"]
+    - Plain string: "小怡家费用.xlsx"
+    - Just stem: ["小怡家费用"]
+    """
+    if not sources_val:
+        return False
+
+    sources_list = sources_val if isinstance(sources_val, list) else [sources_val]
+
+    variants = _source_match_variants(raw_filename)
+    stem = None  # lazy init
+
+    for s in sources_list:
+        if not isinstance(s, str) or not s.strip():
+            continue
+        s_lower = s.lower()
+        # Check all variants (any direction)
+        for v in variants:
+            v_lower = v.lower()
+            if v_lower in s_lower or s_lower in v_lower:
+                return True
+        # Also check stem containment
+        if stem is None:
+            from pathlib import Path as _P
+            stem = _P(raw_filename).stem.lower()
+        if stem in s_lower:
+            return True
+
+    return False
+
+
 def _find_derived_pages_for_source(raw_filename: str) -> list:
     """Find all wiki pages (infrastructure/concepts/entities/etc.) that reference
     the given raw source file in their 'sources' frontmatter field.
@@ -555,13 +630,7 @@ def _find_derived_pages_for_source(raw_filename: str) -> list:
                 content = read_file_safe(wf)
                 fm = parse_frontmatter(content)
                 sources = fm.get('sources', [])
-                if isinstance(sources, list):
-                    for s in sources:
-                        if isinstance(s, str) and raw_filename in s:
-                            rel = str(wf.relative_to(config.root))
-                            derived.append((wf, rel))
-                            break
-                elif isinstance(sources, str) and raw_filename in sources:
+                if _source_matches(sources, raw_filename):
                     rel = str(wf.relative_to(config.root))
                     derived.append((wf, rel))
     return derived

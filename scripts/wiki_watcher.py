@@ -324,6 +324,7 @@ class WikiAgent:
                     return self._read_xls_book(wb)
 
                 parts = []
+                summary_parts = []
                 for sheet_name in wb.sheetnames:
                     ws = wb[sheet_name]
                     if hasattr(ws, 'max_row'):  # openpyxl
@@ -332,6 +333,16 @@ class WikiAgent:
                         rows = []
                     parts.append(f"## 工作表: {sheet_name}")
                     parts.append(self._format_rows(rows))
+                    # Pre-compute numerical summaries so LLM doesn't need to do mental math
+                    calc = self._compute_sheet_numerical_summary(rows)
+                    if calc:
+                        summary_parts.append(calc)
+
+                # Prepend computed numerical summary before table data
+                if summary_parts:
+                    parts.insert(0, "## 预计算汇总（代码自动计算，非模型心算，确保数字准确）")
+                    parts.extend(summary_parts)
+
                 return "\n\n".join(parts)
             except ImportError:
                 return f"[{suffix.upper()} file: {file_path.name}]\nNote: install openpyxl/xlrd: `pip install openpyxl xlrd`"
@@ -388,6 +399,115 @@ class WikiAgent:
             escaped = [WikiAgent._escape_pipe(c) for c in r]
             lines.append('| ' + ' | '.join(escaped) + ' |')
         return '\n'.join(lines)
+
+    @staticmethod
+    def _compute_sheet_numerical_summary(rows) -> str | None:
+        """Pre-compute numerical summaries from a spreadsheet sheet.
+
+        Scans each column for numeric values, computes count/sum/avg/min/max.
+        This prevents the LLM from doing error-prone mental math.
+        """
+        from decimal import Decimal, ROUND_HALF_UP
+
+        if not rows:
+            return None
+
+        # Filter empty rows and get header
+        data_rows = [r for r in rows if any(c is not None and str(c).strip() for c in r)]
+        if len(data_rows) < 2:  # need header + at least 1 data row
+            return None
+
+        header = data_rows[0]
+        data = data_rows[1:]
+        num_cols = len(header)
+
+        parts = []
+        for col_idx in range(num_cols):
+            col_name = str(header[col_idx]).strip() if header[col_idx] else f'列{col_idx + 1}'
+
+            # Collect numeric values from this column
+            numeric_values = []
+            value_labels = []  # (row_label, Decimal) pairs
+            row_label_col = None
+            # Try to find a label column (first non-numeric text column)
+            if col_idx > 0:
+                for rc in range(col_idx):
+                    for row in data:
+                        if rc < len(row) and row[rc] is not None:
+                            try:
+                                float(str(row[rc]).strip())
+                            except (ValueError, TypeError):
+                                row_label_col = rc
+                                break
+                    if row_label_col is not None:
+                        break
+
+            for row in data:
+                if col_idx >= len(row):
+                    continue
+                raw_val = row[col_idx]
+                if raw_val is None:
+                    continue
+                # Clean the value
+                raw_str = str(raw_val).strip()
+                if not raw_str:
+                    continue
+                # Remove common currency/unit prefixes
+                clean = raw_str
+                for prefix in ['¥', '￥', '$', '€', '¥', '元', '万元']:
+                    clean = clean.replace(prefix, '')
+                clean = clean.replace(',', '')
+                # Handle percentage
+                is_percent = clean.endswith('%')
+                if is_percent:
+                    clean = clean[:-1]
+                try:
+                    num_dec = Decimal(str(clean))
+                    numeric_values.append(num_dec)
+                    # Get row label
+                    if row_label_col is not None and row_label_col < len(row):
+                        label = str(row[row_label_col]).strip()
+                    else:
+                        label = ''
+                    value_labels.append((label, num_dec))
+                except (ValueError, TypeError, Exception):
+                    pass
+
+            if len(numeric_values) < 2:  # need at least 2 values to be meaningful
+                continue
+
+            # Use Decimal for precise arithmetic
+            dec_values = [Decimal(str(v)) for v in numeric_values]
+            total = sum(dec_values)
+            avg = total / len(dec_values)
+            minimum = min(dec_values)
+            maximum = max(dec_values)
+
+            # Format: round to 2 decimal places if needed
+            def fmt(d):
+                if d == d.to_integral_value():
+                    return str(d.to_integral_value())
+                return str(d.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+            parts.append(f"### 列「{col_name}」数值汇总（精确计算）")
+            parts.append(f"- 行数: {len(numeric_values)}")
+            parts.append(f"- 合计: {fmt(total)}")
+            parts.append(f"- 平均: {fmt(avg)}")
+            parts.append(f"- 最小: {fmt(minimum)}")
+            parts.append(f"- 最大: {fmt(maximum)}")
+
+            # If we have row labels and values, list them for verification
+            if value_labels and any(label for label, _ in value_labels):
+                detail_lines = []
+                for label, val in value_labels:
+                    detail_lines.append(f"  - {label}: {fmt(val)}" if label else f"  - {fmt(val)}")
+                parts.append("明细:")
+                parts.append('\n'.join(detail_lines))
+
+        if not parts:
+            return None
+
+        return '\n\n'.join(parts)
 
     @staticmethod
     def _format_table(rows) -> str:
@@ -731,16 +851,29 @@ class WikiWatcher:
         self.config.save_state(self.state)
 
     def _sync_vectors(self, written_files: list):
-        """Re-sync vector store after wiki pages are written."""
+        """Incrementally sync vector store — only ingest pages that were actually modified."""
+        if not written_files:
+            return
         try:
-            from scripts.vector_ingest import ingest_all
+            from pathlib import Path as _Path
             from config import WikiConfig
             from embedding_client import EmbeddingClient
+            from scripts.vector_ingest import ingest_page
 
             config = WikiConfig()
             embedding_client = EmbeddingClient(config)
-            result = ingest_all(config, embedding_client, show_progress=False)
-            console.print(f"  [dim]📐 Vectors synced: {result['success']} pages indexed[/dim]")
+
+            success = 0
+            for f in written_files:
+                fp = config.root / f
+                if fp.exists():
+                    try:
+                        if ingest_page(fp, config, embedding_client):
+                            success += 1
+                    except Exception as e:
+                        console.print(f"  [yellow]⚠ Vector ingest failed for {f}: {e}[/yellow]")
+
+            console.print(f"  [dim]📐 Vectors synced: {success}/{len(written_files)} pages indexed[/dim]")
         except Exception as e:
             console.print(f"  [yellow]⚠ Vector sync failed: {e}[/yellow]")
 

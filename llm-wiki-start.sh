@@ -82,6 +82,11 @@ echo ""
 echo "  🔍 wiki_watcher     → 自动监控 raw/ 目录"
 echo "  🌐 Web UI           → http://localhost:5000"
 echo ""
+
+# 启动时执行一次孤儿向量清理（后台异步，不阻塞）
+echo "  🧹 正在检查孤儿向量条目..."
+python3 scripts/clean_orphans.py --cron >> web_ui.log 2>&1 &
+
 echo "其他操作:"
 echo "  ./stop.sh          → 停止所有服务"
 echo "  ./wiki.sh status   → 查看运行状态和模型"
