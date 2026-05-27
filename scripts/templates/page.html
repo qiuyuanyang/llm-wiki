@@ -2,7 +2,18 @@
 {% block title %}{{ name }} - LLM Wiki{% endblock %}
 {% block content %}
 <div style="margin-bottom: 16px;">
-    <a href="/" style="color: #4fc3f7; text-decoration: none;">← 返回首页</a>
+    <a href="javascript:void(0)" onclick="goBack()" style="color: #4fc3f7; text-decoration: none;">← 返回上一页</a>
+    <script>
+    function goBack() {
+        if (document.referrer && document.referrer.startsWith(window.location.origin)) {
+            // Has valid referrer from same origin → go back preserving page state
+            window.history.back();
+        } else {
+            // No referrer (direct link, bookmark) → fallback to homepage
+            window.location.href = '/';
+        }
+    }
+    </script>
 </div>
 
 <h1 style="color: #4fc3f7; margin-bottom: 8px;">{{ name }}</h1>
