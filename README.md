@@ -76,6 +76,7 @@ pip install anthropic openai watchdog rich flask pdfplumber python-docx openpyxl
 │   ├── web_ui.py              # Web 界面
 │   ├── stats.sh               # 统计和健康检查
 │   ├── search.sh              # 全文搜索
+│   ├── clean_orphans.py       # 孤儿向量清理脚本
 │   └── templates/             # Web 页面模板
 │
 ├── vector_store.py            # SQLite 向量存储
@@ -153,11 +154,14 @@ pip install anthropic openai watchdog rich flask pdfplumber python-docx openpyxl
 ```
 
 功能：
-- 📊 统计仪表板
+- 📊 统计仪表板（页面类型分布，中文名称显示）
+- 📄 最近页面（自动提取中文标题，存储保持英文）
 - 🔍 语义搜索
 - 🤖 智能问答（Markdown 渲染回答）
 - 🔧 故障诊断浏览器
 - 📊 交互式拓扑图
+
+> **中文标题显示**：首页和搜索页的页面名称自动从 Markdown 正文的 `# 一级标题` 提取中文显示，存储层（文件名/路径）保持英文不变。
 
 ### 🏗️ 基础设施实体支持
 
@@ -168,6 +172,22 @@ pip install anthropic openai watchdog rich flask pdfplumber python-docx openpyxl
 ### ⚡ 自动向量同步
 
 每次导入新文档后，系统自动同步向量索引，搜索和问答立即可用。
+
+### 🧹 孤儿向量自动清理
+
+当 wiki 页面被删除时，向量库可能残留孤儿条目。系统提供三层清理机制：
+
+- **异步后台清理**：删除源文件时自动在后台线程清理，不阻塞主流程
+- **定时自动清理**：crontab 每天凌晨 3:00 自动扫描清理
+- **手动清理**：`./wiki.sh clean-orphans` 或 `POST /api/vectors/cleanup-orphan`
+
+```bash
+# 手动执行
+./wiki.sh clean-orphans
+
+# 安静模式（适合脚本/cron）
+./wiki.sh clean-orphans --cron
+```
 
 ---
 
@@ -258,6 +278,9 @@ pip install anthropic openai watchdog rich flask pdfplumber python-docx openpyxl
 # ── 向量索引 ──
 ./wiki.sh embed                # 生成向量嵌入
 ./wiki.sh reindex              # 完全重建索引
+./wiki.sh clean-orphans        # 清理孤儿向量条目（wiki 已删但向量残留）
+
+# 孤儿向量自动清理：每天凌晨 3:00 通过 crontab 自动执行
 
 # ── 故障诊断 ──
 ./wiki.sh diagnose scan        # 扫描提取诊断三元组

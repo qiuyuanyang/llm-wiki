@@ -12,8 +12,8 @@
     .upload-area .text { font-size: 16px; color: #aaa; }
     .upload-area .text strong { color: #4fc3f7; cursor: pointer; }
     .upload-area .hint { font-size: 13px; color: #666; margin-top: 8px; }
+    .upload-area.uploading { pointer-events: none; opacity: 0.7; }
 
-    /* Search bar */
     .source-search-bar {
         display: flex; gap: 12px; margin-bottom: 20px; align-items: center;
     }
@@ -49,27 +49,39 @@
     .file-icon { font-size: 28px; flex-shrink: 0; width: 40px; text-align: center; }
     .file-info { flex: 1; min-width: 0; }
     .file-name { font-size: 15px; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-meta { display: flex; gap: 16px; margin-top: 4px; font-size: 13px; color: #888; }
+    .file-meta { display: flex; gap: 16px; margin-top: 4px; font-size: 13px; color: #888; flex-wrap: wrap; }
     .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
     .btn {
         padding: 8px 16px; border: none; border-radius: 6px;
         font-size: 13px; font-weight: 600; cursor: pointer;
-        transition: background 0.2s; text-decoration: none;
+        transition: background 0.2s, opacity 0.2s; text-decoration: none;
         display: inline-flex; align-items: center; gap: 6px;
+        white-space: nowrap; user-select: none;
     }
+    .btn:disabled, .btn.disabled {
+        opacity: 0.4 !important; cursor: not-allowed !important;
+        filter: grayscale(0.5);
+    }
+    .btn .btn-spinner {
+        display: inline-block; width: 12px; height: 12px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .btn-view { background: #1565c0; color: #fff; }
-    .btn-view:hover { background: #1976d2; }
+    .btn-view:hover:not(:disabled) { background: #1976d2; }
     .btn-delete { background: #c62828; color: #fff; }
-    .btn-delete:hover { background: #d32f2f; }
+    .btn-delete:hover:not(:disabled) { background: #d32f2f; }
     .btn-download { background: #00838f; color: #fff; }
     .btn-download:hover { background: #0097a7; }
     .btn-ingest { background: #2e7d32; color: #fff; }
-    .btn-ingest:hover { background: #388e3c; }
+    .btn-ingest:hover:not(:disabled) { background: #388e3c; }
     .btn-reprocess { background: #6a1b9a; color: #fff; }
-    .btn-reprocess:hover { background: #7b1fa2; }
+    .btn-reprocess:hover:not(:disabled) { background: #7b1fa2; }
 
-    /* Preview panel */
     .file-preview-panel {
         background: #16213e; border: 1px solid #2a2a4a; border-top: none;
         border-radius: 0 0 8px 8px; padding: 24px; margin-bottom: 12px;
@@ -105,10 +117,6 @@
     .preview-md strong { color: #e0e0e0; }
     .preview-md em { color: #aaa; }
 
-    /* Search result highlight */
-    .search-result-item { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
-
-    /* Pagination */
     .pagination {
         display: flex; justify-content: center; align-items: center; gap: 8px;
         margin-top: 24px; padding: 16px 0;
@@ -122,7 +130,6 @@
     .pagination .page-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
     .pagination .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
     .pagination .page-info { color: #888; font-size: 13px; margin: 0 12px; }
-    .pagination .page-info:last-of-type { margin-right: 4px; }
 
     .toast-container { position: fixed; top: 80px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
     .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
@@ -134,9 +141,56 @@
     .progress-bar .fill { height: 100%; background: #4fc3f7; transition: width 0.3s; width: 0%; }
     .empty-state { text-align: center; padding: 60px 20px; color: #666; }
     .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+    .refresh-indicator {
+        position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px;
+        padding: 8px 16px; font-size: 13px; color: #4fc3f7;
+        display: none; align-items: center; gap: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .refresh-indicator.active { display: flex; }
+    .refresh-spinner {
+        width: 14px; height: 14px; border: 2px solid #2a2a4a;
+        border-top-color: #4fc3f7; border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    /* Confirmation Modal */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+        animation: fadeIn 0.15s ease;
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal-box {
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px;
+        padding: 32px; max-width: 480px; width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    .modal-icon { font-size: 40px; text-align: center; margin-bottom: 16px; }
+    .modal-title { color: #4fc3f7; font-size: 18px; font-weight: 600; text-align: center; margin: 0 0 12px; }
+    .modal-message { color: #ccc; font-size: 14px; text-align: center; line-height: 1.6; margin: 0 0 24px; white-space: pre-line; }
+    .modal-buttons { display: flex; gap: 12px; justify-content: center; }
+    .modal-btn {
+        padding: 10px 28px; border: none; border-radius: 8px;
+        font-size: 14px; font-weight: 600; cursor: pointer;
+        transition: background 0.2s;
+    }
+    .modal-btn-cancel { background: #333; color: #ccc; }
+    .modal-btn-cancel:hover { background: #444; }
+    .modal-btn-confirm { background: #c62828; color: #fff; }
+    .modal-btn-confirm:hover { background: #d32f2f; }
 </style>
 
 <div class="toast-container" id="toastContainer"></div>
+<div class="refresh-indicator" id="refreshIndicator">
+    <div class="refresh-spinner"></div>
+    <span id="refreshText">正在刷新...</span>
+</div>
 
 <!-- Upload Area -->
 <div class="upload-area" id="uploadArea">
@@ -155,7 +209,7 @@
     <button class="search-btn clear-btn" onclick="clearSearch()">✕ 清除</button>
     <select id="perPageSelect" onchange="changePerPage()" style="padding:8px 12px;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:6px;color:#aaa;font-size:13px;cursor:pointer;">
         <option value="5">5条/页</option>
-        <option value="10">10条/页</option>
+        <option value="10" selected>10条/页</option>
         <option value="20">20条/页</option>
         <option value="50">50条/页</option>
     </select>
@@ -182,17 +236,64 @@ const progressBar = document.getElementById('progressBar');
 const progressFill = document.getElementById('progressFill');
 const toastContainer = document.getElementById('toastContainer');
 const searchInput = document.getElementById('searchInput');
+const refreshIndicator = document.getElementById('refreshIndicator');
+const refreshText = document.getElementById('refreshText');
 
 // State
 let currentPage = 1;
-let perPage = 5;
+let perPage = 10;
+let isLoading = false;
+let isRefreshing = false;
+let prevFileSnapshot = '';
+
+// ── Custom Confirmation Modal ──
+function showConfirm(title, message, icon = '⚠️', confirmText = '确定', cancelText = '取消', confirmClass = 'modal-btn-confirm') {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-box">
+                <div class="modal-icon">${icon}</div>
+                <h3 class="modal-title">${title}</h3>
+                <p class="modal-message">${message}</p>
+                <div class="modal-buttons">
+                    <button class="modal-btn modal-btn-cancel" id="modalCancel">${cancelText}</button>
+                    <button class="modal-btn ${confirmClass}" id="modalConfirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const doClose = (result) => {
+            overlay.remove();
+            resolve(result);
+        };
+
+        overlay.querySelector('#modalCancel').addEventListener('click', () => doClose(false));
+        overlay.querySelector('#modalConfirm').addEventListener('click', () => doClose(true));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) doClose(false); });
+    });
+}
+
+// Track which filenames are currently being deleted (prevents double-click)
+let deletingFiles = new Set();
 
 fileInputBtn.addEventListener('click', () => fileInput.click());
-uploadArea.addEventListener('click', (e) => { if (e.target !== fileInputBtn) fileInput.click(); });
+uploadArea.addEventListener('click', (e) => { if (e.target !== fileInputBtn && !uploadArea.classList.contains('uploading')) fileInput.click(); });
 uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
 uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
 uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files); });
 fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) handleUpload(fileInput.files); });
+
+function showRefreshIndicator(text) {
+    isRefreshing = true;
+    refreshText.textContent = text || '正在刷新...';
+    refreshIndicator.classList.add('active');
+}
+function hideRefreshIndicator() {
+    isRefreshing = false;
+    refreshIndicator.classList.remove('active');
+}
 
 async function handleUpload(files) {
     const allowedExts = ['.md','.txt','.json','.yaml','.yml','.py','.sh','.sql','.conf','.cfg','.ini','.csv','.log','.xml','.html','.css','.js','.pdf','.doc','.docx','.xls','.xlsx'];
@@ -202,7 +303,10 @@ async function handleUpload(files) {
         return true;
     });
     if (validFiles.length === 0) return;
+
+    uploadArea.classList.add('uploading');
     progressBar.classList.add('active'); progressFill.style.width = '0%';
+
     for (let i = 0; i < validFiles.length; i++) {
         const file = validFiles[i];
         const formData = new FormData(); formData.append('file', file);
@@ -215,33 +319,34 @@ async function handleUpload(files) {
         progressFill.style.width = `${((i+1)/validFiles.length)*100}%`;
     }
     setTimeout(() => { progressBar.classList.remove('active'); progressFill.style.width = '0%'; }, 500);
-    currentPage = 1; loadSourceFiles(); fileInput.value = '';
+    uploadArea.classList.remove('uploading');
+    fileInput.value = '';
+
+    setTimeout(() => refreshFileList('上传完成，刷新列表中...'), 800);
+    startStatusPolling();
 }
 
-function doSearch() {
-    currentPage = 1;
-    loadSourceFiles();
-}
+function doSearch() { currentPage = 1; loadSourceFiles(); }
+function clearSearch() { searchInput.value = ''; currentPage = 1; loadSourceFiles(); }
+function changePerPage() { perPage = parseInt(document.getElementById('perPageSelect').value); currentPage = 1; loadSourceFiles(); }
 
-function clearSearch() {
-    searchInput.value = '';
-    currentPage = 1;
-    loadSourceFiles();
-}
-
-function changePerPage() {
-    perPage = parseInt(document.getElementById('perPageSelect').value);
-    currentPage = 1;
-    loadSourceFiles();
+async function refreshFileList(statusText) {
+    if (isLoading) return;
+    showRefreshIndicator(statusText);
+    await loadSourceFiles();
+    hideRefreshIndicator();
 }
 
 async function loadSourceFiles() {
+    if (isLoading) return;
+    isLoading = true;
+
     const listEl = document.getElementById('fileList');
-    const countEl = document.getElementById('fileCount');
     const keyword = searchInput.value.trim();
 
-    // Loading state
-    listEl.innerHTML = `<div class="loading"><div class="spinner"></div><span style="margin-left:12px">${keyword ? '搜索中...' : '加载中...'}</span></div>`;
+    if (!isRefreshing) {
+        listEl.innerHTML = `<div class="loading"><div class="spinner"></div><span style="margin-left:12px">${keyword ? '搜索中...' : '加载中...'}</span></div>`;
+    }
 
     try {
         const params = new URLSearchParams();
@@ -251,18 +356,26 @@ async function loadSourceFiles() {
 
         const resp = await fetch(`/api/sources?${params}`);
         const data = await resp.json();
-        renderFileList(data);
-        // Sync perPage select
+
+        const snapshot = data.files.map(f => `${f.name}|${f.processing?'P':''}|${f.error?'E':''}|${f.ingested?'I':''}`).join(',');
+        const hasChanged = snapshot !== prevFileSnapshot;
+
+        if (hasChanged || !isRefreshing) {
+            renderFileList(data);
+            prevFileSnapshot = snapshot;
+        }
+
         const sel = document.getElementById('perPageSelect');
         if (sel && data.per_page) {
             const opt = sel.querySelector(`option[value="${data.per_page}"]`);
             if (opt) opt.selected = true;
         }
     } catch (err) {
-        listEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+        if (!isRefreshing) listEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    } finally {
+        isLoading = false;
     }
 }
-
 
 function renderFileList(data) {
     const listEl = document.getElementById('fileList');
@@ -277,49 +390,60 @@ function renderFileList(data) {
     }
 
     listEl.innerHTML = data.files.map(f => {
-        const safeName = escapeHtml(f.name);
+        const displayName = escapeHtml(f.name);
+        const jsName = escapeForJs(f.name);
         const encName = encodeURIComponent(f.name);
 
-        // Determine status display
         let statusHtml;
         let actionButtons;
         const downloadBtn = `<a class="btn btn-download" href="/api/sources/${encodeURIComponent(f.name)}/download">📦 下载</a>`;
 
+        const isDeleting = deletingFiles.has(f.name);
+
         if (f.processing) {
+            // ── 处理中：保留所有按钮，但置灰不可点 ──
             statusHtml = `<span style="color:#4fc3f7">⚙️ 处理中: ${escapeHtml(f.processing_message || '处理中...')}</span>`;
             actionButtons = `
-                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
-                <button class="btn btn-disabled" disabled>🔄 处理中不可用</button>
-                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+                <button class="btn btn-reprocess disabled" disabled title="处理中不可操作">🔄 重新处理</button>
+                <button class="btn btn-delete ${isDeleting ? 'disabled' : ''}" onclick="deleteFile('${jsName}')" ${isDeleting ? 'disabled' : ''}>
+                    ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
+                </button>`;
         } else if (f.error) {
             statusHtml = `<span style="color:#ef9a9a">❌ 处理失败: ${escapeHtml(f.error)}</span>`;
             actionButtons = `
-                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
-                <button class="btn btn-reprocess" onclick="reprocessFile('${safeName}')">🔄 重新处理</button>
-                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+                <button class="btn btn-reprocess" onclick="reprocessFile('${jsName}')">🔄 重新处理</button>
+                <button class="btn btn-delete ${isDeleting ? 'disabled' : ''}" onclick="deleteFile('${jsName}')" ${isDeleting ? 'disabled' : ''}>
+                    ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
+                </button>`;
         } else if (f.ingested) {
             statusHtml = '<span style="color:#81c784">✅ 已向量化并同步索引</span>';
             actionButtons = `
-                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
-                <button class="btn btn-reprocess" onclick="reprocessFile('${safeName}')">🔄 重新处理</button>
-                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+                <button class="btn btn-reprocess" onclick="reprocessFile('${jsName}')">🔄 重新处理</button>
+                <button class="btn btn-delete ${isDeleting ? 'disabled' : ''}" onclick="deleteFile('${jsName}')" ${isDeleting ? 'disabled' : ''}>
+                    ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
+                </button>`;
         } else {
             statusHtml = '<span style="color:#f9a825">⏳ 未处理</span>';
             actionButtons = `
-                <button class="btn btn-view" onclick="togglePreview('${safeName}')">👁 预览</button>
+                <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
-                <button class="btn btn-ingest" onclick="ingestFile('${safeName}')">📥 向量化</button>
-                <button class="btn btn-delete" onclick="deleteFile('${safeName}')">🗑 删除</button>`;
+                <button class="btn btn-ingest" onclick="ingestFile('${jsName}')">📥 向量化</button>
+                <button class="btn btn-delete ${isDeleting ? 'disabled' : ''}" onclick="deleteFile('${jsName}')" ${isDeleting ? 'disabled' : ''}>
+                    ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
+                </button>`;
         }
 
         return `
-        <div class="file-card" id="file-card-${encName}">
+        <div class="file-card ${f.processing ? 'processing' : ''}" id="file-card-${encName}">
             <div class="file-icon">${getFileIcon(f.name)}</div>
             <div class="file-info">
-                <div class="file-name" title="${safeName}">${safeName}</div>
+                <div class="file-name" title="${displayName}">${displayName}</div>
                 <div class="file-meta">
                     <span>📐 ${formatSize(f.size)}</span>
                     <span>🕐 ${f.mtime || '-'}</span>
@@ -333,7 +457,7 @@ function renderFileList(data) {
         <div class="file-preview-panel" id="preview-panel-${encName}">
             <div class="file-preview-header">
                 <h3 id="preview-title-${encName}">预览</h3>
-                <button class="btn-close" onclick="closePreview('${safeName}')">✕</button>
+                <button class="btn-close" onclick="closePreview('${jsName}')">✕</button>
             </div>
             <div id="preview-body-${encName}"></div>
         </div>`;
@@ -347,44 +471,29 @@ function renderPagination(page, totalPages) {
     if (totalPages <= 1) { container.innerHTML = ''; return; }
 
     let html = '';
-    // Prev
     html += `<button class="page-btn ${page <= 1 ? 'disabled' : ''}" onclick="goToPage(${page - 1})">‹</button>`;
 
-    // Page numbers with ellipsis
     const pages = [];
     pages.push(1);
     if (page > 3) pages.push('...');
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
-        pages.push(i);
-    }
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
     if (page < totalPages - 2) pages.push('...');
     if (totalPages > 1) pages.push(totalPages);
 
-    // Deduplicate
     const seen = new Set();
     for (const p of pages) {
         if (seen.has(p)) continue;
         seen.add(p);
-        if (p === '...') {
-            html += `<span class="page-info">…</span>`;
-        } else {
-            html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
-        }
+        if (p === '...') { html += `<span class="page-info">…</span>`; }
+        else { html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`; }
     }
 
-    // Next
     html += `<button class="page-btn ${page >= totalPages ? 'disabled' : ''}" onclick="goToPage(${page + 1})">›</button>`;
-
     container.innerHTML = html;
 }
 
-function goToPage(p) {
-    currentPage = p;
-    loadSourceFiles();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+function goToPage(p) { currentPage = p; loadSourceFiles(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
-// Preview
 async function togglePreview(filename) {
     const encName = encodeURIComponent(filename);
     const panel = document.getElementById(`preview-panel-${encName}`);
@@ -404,72 +513,108 @@ async function togglePreview(filename) {
             } else {
                 bodyEl.innerHTML = `<pre class="preview-raw">${escapeHtml(data.content)}</pre>`;
             }
-        } else {
-            bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${data.error}</div>`;
-        }
-    } catch (err) {
-        bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${err}</div>`;
-    }
+        } else { bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${data.error}</div>`; }
+    } catch (err) { bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${err}</div>`; }
 }
 function closePreview(filename) {
     const panel = document.getElementById(`preview-panel-${encodeURIComponent(filename)}`);
     if (panel) panel.classList.remove('active');
 }
 
-// Ingest status polling — triggers full reload when state changes
+// ── Background polling ──
 let statusPollInterval = null;
+let lastPollSnapshot = '';
+
 function startStatusPolling() {
     if (statusPollInterval) return;
     statusPollInterval = setInterval(async () => {
         try {
             const resp = await fetch('/api/sources/ingest-status');
             const jobs = await resp.json();
-            let hasRunning = false;
-            for (const [filename, job] of Object.entries(jobs)) {
-                const enc = encodeURIComponent(filename);
-                const card = document.getElementById(`file-card-${enc}`);
-                if (job.status === 'running') {
-                    card?.classList.add('processing'); hasRunning = true;
-                } else if (job.status === 'done' || job.status === 'error') {
-                    card?.classList.remove('processing');
-                    setTimeout(() => { loadSourceFiles(); }, 1000);
+            const hasRunning = Object.values(jobs).some(j => j.status === 'running');
+
+            const jobSnapshot = Object.entries(jobs).map(([k,v]) => `${k}:${v.status}`).join(',');
+            if (jobSnapshot !== lastPollSnapshot && lastPollSnapshot !== '') {
+                await refreshFileList('处理状态更新，刷新中...');
+                for (const [filename, job] of Object.entries(jobs)) {
+                    if (job.status === 'done') showToast(`✅ ${filename} 处理完成`, 'success');
+                    else if (job.status === 'error') showToast(`❌ ${filename} 处理失败: ${job.message}`, 'error');
                 }
             }
-            if (!hasRunning) { clearInterval(statusPollInterval); statusPollInterval = null; }
-        } catch (e) {}
+            lastPollSnapshot = jobSnapshot;
+
+            if (!hasRunning) {
+                clearInterval(statusPollInterval); statusPollInterval = null; lastPollSnapshot = '';
+            }
+        } catch (e) { /* silent */ }
     }, 2000);
 }
 
+// ── Delete with loading lock ──
 async function deleteFile(filename) {
-    if (!confirm(`确定删除源文档 "${filename}"？\n\n同时会删除对应的 wiki 页面和向量索引。`)) return;
+    // 防止重复点击
+    if (deletingFiles.has(filename)) return;
+
+    // 如果正在处理中，额外确认（用 getElementById 代替 querySelector 避免 CSS 转义问题）
+    const cardEl = document.getElementById(`file-card-${encodeURIComponent(filename)}`);
+    const isProcessing = cardEl && cardEl.classList.contains('processing');
+
+    let title = '确认删除';
+    let message = `确定删除源文档 "${filename}"？\n同时会删除对应的 wiki 页面和向量索引。`;
+    let icon = '🗑️';
+    if (isProcessing) {
+        title = '文件正在处理中';
+        message = `文件 "${filename}" 正在后台处理中。\n确定要删除吗？这会中断处理并删除已生成的内容。`;
+        icon = '⏳';
+    }
+    const confirmed = await showConfirm(title, message, icon, '删除', '取消');
+    if (!confirmed) return;
+
+    deletingFiles.add(filename);
+    showRefreshIndicator('正在删除...');
     try {
         const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}`, { method: 'DELETE' });
         const data = await resp.json();
         if (resp.ok) {
             let msg = `🗑 已删除: ${filename}`;
             if (data.details && data.details.length > 0) msg += '\n' + data.details.join('\n');
-            showToast(msg, 'success'); loadSourceFiles();
+            showToast(msg, 'success');
+            currentPage = 1;
+            await refreshFileList('删除完成，刷新列表中...');
         } else { showToast(`删除失败: ${data.error}`, 'error'); }
     } catch (err) { showToast(`删除出错: ${err}`, 'error'); }
+    finally {
+        deletingFiles.delete(filename);
+        hideRefreshIndicator();
+    }
 }
+
 async function ingestFile(filename) {
+    showRefreshIndicator('正在触发向量化...');
     try {
         const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}/ingest`, { method: 'POST' });
         const data = await resp.json();
-        if (resp.ok) { showToast(`📥 已开始处理: ${filename}`, 'info'); startStatusPolling(); }
+        if (resp.ok) { showToast(`📥 已开始处理: ${filename}`, 'info'); startStatusPolling(); await refreshFileList('向量化已触发，刷新状态...'); }
         else { showToast(`处理失败: ${data.error}`, 'error'); }
     } catch (err) { showToast(`处理出错: ${err}`, 'error'); }
-    loadSourceFiles();
+    hideRefreshIndicator();
 }
+
 async function reprocessFile(filename) {
-    if (!confirm(`确定重新处理 "${filename}"？\n\n会先删除现有的 wiki 页面和向量索引，然后重新处理。`)) return;
+    const confirmed = await showConfirm(
+        '确认重新处理',
+        `确定重新处理 "${filename}"？\n会先删除现有的 wiki 页面和向量索引，然后重新处理。`,
+        '🔄', '重新处理', '取消'
+    );
+    if (!confirmed) return;
+    showRefreshIndicator('正在触发重新处理...');
     try {
         const resp = await fetch(`/api/sources/${encodeURIComponent(filename)}/reprocess`, { method: 'POST' });
         const data = await resp.json();
-        if (resp.ok) { showToast(`🔄 正在重新处理: ${filename}`, 'info'); startStatusPolling(); }
+        if (resp.ok) { showToast(`🔄 正在重新处理: ${filename}`, 'info'); startStatusPolling(); await refreshFileList('重新处理已触发，刷新状态...'); }
         else { showToast(`重新处理失败: ${data.error}`, 'error'); }
     } catch (err) { showToast(`重新处理出错: ${err}`, 'error'); }
-    loadSourceFiles();
+    hideRefreshIndicator();
 }
 
 function getFileIcon(name) {
@@ -483,7 +628,21 @@ function formatSize(bytes) {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
-function escapeHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+// Escape for JS strings inside onclick attributes (separate from HTML display escaping)
+function escapeForJs(str) {
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"');
+}
 function showToast(msg, type='info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`; toast.textContent = msg;

@@ -342,6 +342,26 @@ class WikiAgent:
             return file_path.read_text(encoding='latin-1')
 
     @staticmethod
+    def _escape_pipe(value: str) -> str:
+        """Sanitize a cell value for safe inclusion in a Markdown table row.
+
+        Order matters — backslash MUST be escaped first, otherwise it will
+        escape the replacement characters we introduce.
+
+        1. Backslash     \\ → \\\\
+        2. Newlines      \\n \\r → <br>
+        3. Tabs          \\t → space
+        4. Pipe          |  → \\|
+        """
+        return (value
+            .replace('\\', '\\\\')
+            .replace('\r\n', '<br>')
+            .replace('\n', '<br>')
+            .replace('\r', '<br>')
+            .replace('\t', ' ')
+            .replace('|', '\\|'))
+
+    @staticmethod
     def _format_rows(rows) -> str:
         """Format rows as a Markdown table."""
         if not rows:
@@ -361,10 +381,12 @@ class WikiAgent:
             normalized.append(nr)
 
         lines = []
-        lines.append('| ' + ' | '.join(normalized[0]) + ' |')
+        header = [WikiAgent._escape_pipe(c) for c in normalized[0]]
+        lines.append('| ' + ' | '.join(header) + ' |')
         lines.append('| ' + ' | '.join('---' for _ in normalized[0]) + ' |')
         for r in normalized[1:]:
-            lines.append('| ' + ' | '.join(r) + ' |')
+            escaped = [WikiAgent._escape_pipe(c) for c in r]
+            lines.append('| ' + ' | '.join(escaped) + ' |')
         return '\n'.join(lines)
 
     @staticmethod
@@ -383,10 +405,12 @@ class WikiAgent:
                 cells.append('')
 
         lines = []
-        lines.append('| ' + ' | '.join(cells_list[0]) + ' |')
+        header = [WikiAgent._escape_pipe(c) for c in cells_list[0]]
+        lines.append('| ' + ' | '.join(header) + ' |')
         lines.append('| ' + ' | '.join('---' for _ in cells_list[0]) + ' |')
         for cells in cells_list[1:]:
-            lines.append('| ' + ' | '.join(cells) + ' |')
+            escaped = [WikiAgent._escape_pipe(c) for c in cells]
+            lines.append('| ' + ' | '.join(escaped) + ' |')
         return '\n'.join(lines)
 
     @staticmethod
@@ -480,7 +504,7 @@ class WikiAgent:
 {wiki_context[:4000]}"""
 
         try:
-            raw_text = self.router.call(system_prompt, user_message, max_tokens=8000).strip()
+            raw_text = self.router.call(system_prompt, user_message, max_tokens=16000).strip()
 
             # Strip Qwen3 chain-of-thought <think>...</think> blocks
             raw_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
@@ -506,16 +530,16 @@ class WikiAgent:
             console.print(f"[dim]Raw response excerpt: {raw_text[:300]}[/dim]")
             try:
                 import json_repair
-                result = json_repair.loads(raw_text)
-                if isinstance(result, dict) and result:
+                repaired = json_repair.loads(raw_text)
+                if isinstance(repaired, dict) and repaired:
                     console.print("[yellow]JSON repaired via json_repair[/yellow]")
-                    result["source_file"] = str(file_path)
-                    result["processed_at"] = datetime.now().isoformat()
-                    return result
+                    repaired["source_file"] = str(file_path)
+                    repaired["processed_at"] = datetime.now().isoformat()
+                    return repaired
             except ImportError:
-                pass
-            except Exception:
-                pass
+                console.print("[yellow]json_repair not installed, skipping repair[/yellow]")
+            except Exception as repair_err:
+                console.print(f"[yellow]json_repair also failed: {repair_err}[/yellow]")
             return {"error": str(e), "raw": raw_text[:500]}
         except Exception as e:
             console.print(f"[red]API call error: {e}[/red]")
@@ -565,7 +589,19 @@ class WikiAgent:
             brace_start, brace_end = raw_text.find('{'), raw_text.rfind('}')
             if brace_start != -1 and brace_end != -1:
                 raw_text = raw_text[brace_start:brace_end + 1]
-            return json.loads(raw_text)
+            try:
+                return json.loads(raw_text)
+            except json.JSONDecodeError as e:
+                console.print(f"[red]Hotspot JSON parse error: {e}[/red]")
+                try:
+                    import json_repair
+                    repaired = json_repair.loads(raw_text)
+                    if isinstance(repaired, dict) and repaired:
+                        console.print("[yellow]Hotspot JSON repaired via json_repair[/yellow]")
+                        return repaired
+                except Exception:
+                    pass
+                raise e
         except Exception as e:
             console.print(f"[red]Hotspot analysis error: {e}[/red]")
             return {"error": str(e)}

@@ -53,6 +53,10 @@ case "${1:-help}" in
     # 完全重建索引: 清除向量并重新生成
     python3 "$SCRIPT_DIR/scripts/vector_ingest.py" --reindex
     ;;
+  clean-orphans)
+    # 清理向量库孤儿条目（wiki 文件已删除但向量残留）
+    python3 "$SCRIPT_DIR/scripts/clean_orphans.py" "${@:2}"
+    ;;
   query)
     # 智能问答: ./wiki.sh query "MySQL 主从复制如何配置？"
     python3 "$SCRIPT_DIR/scripts/query_engine.py" "${2:-}"
@@ -97,6 +101,7 @@ case "${1:-help}" in
     echo ""
     echo "  embed              为所有 wiki 页面生成向量嵌入"
     echo "  reindex            完全重建索引: 清除向量并重新生成"
+    echo "  clean-orphans      清理向量库孤儿条目（wiki 已删但向量残留）"
     echo "  query <问题>       智能问答（向量搜索 + LLM）"
     echo "  search-v <关键词>   仅向量搜索（不调用 LLM）"
     echo "  graph              生成拓扑图（HTML）"

@@ -30,7 +30,7 @@ from vector_store import VectorStore
 from embedding_client import EmbeddingClient
 from scripts.query_engine import QueryEngine
 from scripts.diagnosis_engine import DiagnosisDB, scan_sources
-from scripts.vector_ingest import ingest_all as ingest_all_vectors
+from scripts.vector_ingest import ingest_all as ingest_all_vectors, _clean_orphan_vectors, schedule_orphan_cleanup
 from scripts.wiki_watcher import WikiConfig as WatcherConfig, WikiAgent, WikiWriter, ModelRouter
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -100,11 +100,33 @@ def _format_docx_table(rows) -> str:
             cells.append('')
 
     lines = []
-    lines.append('| ' + ' | '.join(cells_list[0]) + ' |')
+    header = [_escape_md_table_cell(c) for c in cells_list[0]]
+    lines.append('| ' + ' | '.join(header) + ' |')
     lines.append('| ' + ' | '.join('---' for _ in cells_list[0]) + ' |')
     for cells in cells_list[1:]:
-        lines.append('| ' + ' | '.join(cells) + ' |')
+        escaped = [_escape_md_table_cell(c) for c in cells]
+        lines.append('| ' + ' | '.join(escaped) + ' |')
     return '\n'.join(lines)
+
+
+def _escape_md_table_cell(value: str) -> str:
+    """Sanitize a cell value for safe inclusion in a Markdown table row.
+
+    Order matters — backslash MUST be escaped first, otherwise it will
+    escape the replacement characters we introduce.
+
+    1. Backslash     \ → \\   (must be first, or it escapes later replacements)
+    2. Newlines      \n \r → <br>
+    3. Tabs          \t → space
+    4. Pipe          |  → \|
+    """
+    return (value
+        .replace('\\', '\\\\')
+        .replace('\r\n', '<br>')
+        .replace('\n', '<br>')
+        .replace('\r', '<br>')
+        .replace('\t', ' ')
+        .replace('|', '\\|'))
 
 
 def _format_excel_table(rows: list) -> str:
@@ -124,10 +146,12 @@ def _format_excel_table(rows: list) -> str:
         normalized.append(nr)
 
     lines = []
-    lines.append('| ' + ' | '.join(normalized[0]) + ' |')
+    header = [_escape_md_table_cell(c) for c in normalized[0]]
+    lines.append('| ' + ' | '.join(header) + ' |')
     lines.append('| ' + ' | '.join('---' for _ in normalized[0]) + ' |')
     for r in normalized[1:]:
-        lines.append('| ' + ' | '.join(r) + ' |')
+        escaped = [_escape_md_table_cell(c) for c in r]
+        lines.append('| ' + ' | '.join(escaped) + ' |')
     return '\n'.join(lines)
 
 
@@ -158,11 +182,13 @@ def _format_pdf_table(table: list) -> str:
     # Build markdown table
     lines = []
     # Header
-    lines.append('| ' + ' | '.join(rows[0]) + ' |')
+    header = [_escape_md_table_cell(c) for c in rows[0]]
+    lines.append('| ' + ' | '.join(header) + ' |')
     lines.append('| ' + ' | '.join('---' for _ in rows[0]) + ' |')
     # Data rows
     for row in rows[1:]:
-        lines.append('| ' + ' | '.join(row) + ' |')
+        escaped = [_escape_md_table_cell(c) for c in row]
+        lines.append('| ' + ' | '.join(escaped) + ' |')
 
     return '\n'.join(lines)
 
@@ -201,6 +227,18 @@ def parse_frontmatter(content: str) -> dict:
     return fm
 
 
+def _extract_title(content: str) -> str | None:
+    """Extract the first level-1 heading from Markdown body as display title."""
+    body = strip_frontmatter(content)
+    for line in body.split('\n'):
+        m = re.match(r'^#\s+(.+)$', line.strip())
+        if m:
+            title = m.group(1).strip()
+            if title:
+                return title
+    return None
+
+
 def get_all_pages() -> list:
     """Get all wiki pages with metadata."""
     pages = []
@@ -214,9 +252,10 @@ def get_all_pages() -> list:
                     continue
                 content = read_file_safe(f)
                 fm = parse_frontmatter(content)
+                title = _extract_title(content)
                 pages.append({
                     'path': str(f.relative_to(config.wiki_root)),
-                    'name': f.stem.replace('-', ' ').title(),
+                    'name': title if title else f.stem.replace('-', ' ').title(),
                     'type': dir_name,
                     'category': fm.get('category', ''),
                     'tags': fm.get('tags', []),
@@ -230,9 +269,10 @@ def get_all_pages() -> list:
         for f in diag_dir.glob('*.md'):
             content = read_file_safe(f)
             fm = parse_frontmatter(content)
+            title = _extract_title(content)
             pages.append({
                 'path': str(f.relative_to(config.wiki_root)),
-                'name': f.stem.replace('-', ' ').title(),
+                'name': title if title else f.stem.replace('-', ' ').title(),
                 'type': 'diagnosis',
                 'severity': fm.get('severity', 'medium'),
                 'status': fm.get('status', 'historical'),
@@ -469,12 +509,18 @@ def _find_wiki_source_for_raw(raw_filename: str) -> Path | None:
     """Find the corresponding wiki/sources/ file for a raw source file.
 
     Checks by raw_file frontmatter field and by stem name.
+    Supports .md, .xlsx, .xls, .docx, .doc extensions.
     """
     wiki_src_dir = config.wiki_dir / 'sources'
     if not wiki_src_dir.exists():
         return None
 
-    for wf in wiki_src_dir.glob('*.md'):
+    # Search across all wiki file types (not just .md)
+    wiki_files = []
+    for ext in ('*.md', '*.xlsx', '*.xls', '*.docx', '*.doc', '*.pdf'):
+        wiki_files.extend(wiki_src_dir.glob(ext))
+
+    for wf in wiki_files:
         content = read_file_safe(wf)
         fm = parse_frontmatter(content)
         # Check raw_file frontmatter
@@ -490,34 +536,69 @@ def _find_wiki_source_for_raw(raw_filename: str) -> Path | None:
     return None
 
 
+def _find_derived_pages_for_source(raw_filename: str) -> list:
+    """Find all wiki pages (infrastructure/concepts/entities/etc.) that reference
+    the given raw source file in their 'sources' frontmatter field.
+    Returns list of (Path, relative_path) tuples.
+    """
+    derived = []
+    wiki_root = config.wiki_dir
+    search_dirs = [wiki_root / 'infrastructure', wiki_root / 'concepts',
+                   wiki_root / 'entities', wiki_root / 'queries',
+                   wiki_root / 'comparisons', wiki_root / 'sources']
+
+    for d in search_dirs:
+        if not d.exists():
+            continue
+        for ext in ('*.md', '*.xlsx', '*.xls', '*.docx', '*.doc'):
+            for wf in d.glob(ext):
+                content = read_file_safe(wf)
+                fm = parse_frontmatter(content)
+                sources = fm.get('sources', [])
+                if isinstance(sources, list):
+                    for s in sources:
+                        if isinstance(s, str) and raw_filename in s:
+                            rel = str(wf.relative_to(config.root))
+                            derived.append((wf, rel))
+                            break
+                elif isinstance(sources, str) and raw_filename in sources:
+                    rel = str(wf.relative_to(config.root))
+                    derived.append((wf, rel))
+    return derived
+
+
 def _delete_wiki_and_vector(raw_filename: str) -> list:
-    """Delete corresponding wiki page and vector entry for a raw source file.
+    """Delete wiki page(s) and vector entries associated with a raw source file.
+    This includes the main source page AND any derivative pages
+    (infrastructure/concepts/entities) that reference the source.
     Returns list of actions taken.
     """
     actions = []
 
-    # 1. Find and delete wiki page
+    # 1. Delete main wiki source page
     wiki_file = _find_wiki_source_for_raw(raw_filename)
     if wiki_file and wiki_file.exists():
-        wiki_file.unlink()
-        actions.append(f'已删除 wiki 页面: {wiki_file.name}')
-
-    # 2. Delete vector entry
-    # Try both the wiki path and the raw stem as page_path
-    if wiki_file:
         wiki_rel = str(wiki_file.relative_to(config.root))
+        wiki_file.unlink()
         vector_store.delete_vector(wiki_rel)
+        actions.append(f'已删除 wiki 页面: {wiki_file.name}')
         actions.append(f'已删除向量: {wiki_rel}')
     else:
-        # Fallback: try common page_path patterns
+        # Fallback: try common page_path patterns for vectors
         raw_stem = Path(raw_filename).stem.replace(' ', '-').replace('_', '-').lower()
         if not raw_stem.endswith('.md'):
             raw_stem = raw_stem + '.md'
-
-        # Try wiki/sources/<stem>.md
         wiki_path = f'wiki/sources/{raw_stem}'
         if vector_store.delete_vector(wiki_path):
             actions.append(f'已删除向量: {wiki_path}')
+
+    # 2. Find and delete ALL derivative pages that reference this source
+    derived = _find_derived_pages_for_source(raw_filename)
+    for wf, rel in derived:
+        if wf.exists():
+            wf.unlink()
+            vector_store.delete_vector(rel)
+            actions.append(f'已删除衍生页面: {wf.name} ({rel})')
 
     return actions
 
@@ -568,6 +649,12 @@ def api_list_sources():
                     match = keyword in wiki_content
                 if not match:
                     continue
+
+                    # If watcher daemon processed it (wiki page exists) but Web UI still shows error,
+            # override the error state — watcher is the authoritative source.
+            if has_errored and wiki_name:
+                has_errored = False
+                job = None
 
             files.append({
                 'name': raw_name,
@@ -889,8 +976,8 @@ def api_delete_source(filename):
         # Step 2: Delete raw file
         filepath.unlink()
 
-        # Step 3: Re-sync vector store to ensure consistency
-        ingest_all_vectors(config, embedding_client, show_progress=False)
+        # Step 3: Re-sync vector store to ensure consistency (async, non-blocking)
+        schedule_orphan_cleanup(config, embedding_client, show_progress=False)
 
         messages = [f'已删除源文件: {filename}'] + cleanup_actions
         return jsonify({
@@ -951,6 +1038,20 @@ def api_reprocess_source(filename):
         })
     except Exception as e:
         return jsonify({'error': f'重新处理失败: {e}'}), 500
+
+
+@app.route('/api/vectors/cleanup-orphan', methods=['POST'])
+def api_cleanup_orphan_vectors():
+    """API: Remove vector entries whose wiki files no longer exist on disk."""
+    try:
+        orphaned = _clean_orphan_vectors(config, show_progress=False)
+        return jsonify({
+            'message': f'清理完成，共删除 {len(orphaned)} 个孤儿向量条目',
+            'orphaned': orphaned,
+            'count': len(orphaned),
+        })
+    except Exception as e:
+        return jsonify({'error': f'清理失败: {e}'}), 500
 
 
 @app.route('/api/stats')

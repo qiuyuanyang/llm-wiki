@@ -128,9 +128,39 @@ def ingest_page(file_path: Path, config: WikiConfig,
     return True
 
 
+def _collect_all_page_paths(config: WikiConfig) -> set:
+    """Collect all valid wiki page paths (relative to config.root)."""
+    pages = list(config.wiki_dir.rglob("*.md"))
+    pages += list(config.diagnoses_dir.glob("*.md")) if config.diagnoses_dir.exists() else []
+    pages = [p for p in pages if p.name not in ("index.md", "log.md", "dashboard.md")]
+    return {str(p.relative_to(config.root)) for p in pages}
+
+
+def _clean_orphan_vectors(config: WikiConfig, show_progress: bool = True) -> List[str]:
+    """Remove vector entries whose wiki files no longer exist on disk.
+    Returns list of removed page_paths."""
+    import sqlite3
+    disk_paths = _collect_all_page_paths(config)
+    conn = sqlite3.connect(str(config.vector_db_path))
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT id, page_path FROM vectors").fetchall()
+    orphaned = []
+    for row in rows:
+        if row["page_path"] not in disk_paths:
+            conn.execute("DELETE FROM vectors WHERE id = ?", (row["id"],))
+            orphaned.append(row["page_path"])
+    conn.commit()
+    conn.close()
+    if show_progress and orphaned:
+        print(f"  🗑️  清理了 {len(orphaned)} 个孤儿向量条目:")
+        for p in orphaned:
+            print(f"      - {p}")
+    return orphaned
+
+
 def ingest_all(config: WikiConfig, embedding_client: EmbeddingClient,
                show_progress: bool = True) -> Dict:
-    """Generate embeddings for all wiki pages."""
+    """Generate embeddings for all wiki pages, then clean up orphaned vectors."""
     store = VectorStore(config)
     pages = list(config.wiki_dir.rglob("*.md"))
     pages += list(config.diagnoses_dir.glob("*.md")) if config.diagnoses_dir.exists() else []
@@ -163,6 +193,25 @@ def ingest_all(config: WikiConfig, embedding_client: EmbeddingClient,
             print(f"   {ptype}: {count}")
 
     return {"success": success, "failed": failed, "stats": stats}
+
+
+def schedule_orphan_cleanup(config: WikiConfig, embedding_client: EmbeddingClient,
+                            show_progress: bool = True) -> None:
+    """Async orphan cleanup in a background thread — does not block the caller."""
+    import threading
+
+    def _worker():
+        if show_progress:
+            print("\n🧹 [后台] 开始扫描孤儿向量条目...")
+        orphaned = _clean_orphan_vectors(config, show_progress)
+        if show_progress:
+            if orphaned:
+                print(f"🧹 [后台] 清理了 {len(orphaned)} 个孤儿条目")
+            else:
+                print("🧹 [后台] 向量库干净，无需清理")
+
+    t = threading.Thread(target=_worker, daemon=True, name="orphan-cleanup")
+    t.start()
 
 
 def reindex(config: WikiConfig, embedding_client: EmbeddingClient,

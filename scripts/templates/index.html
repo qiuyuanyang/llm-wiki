@@ -16,10 +16,20 @@
         <div class="value">{{ stats.diagnoses }}</div>
         <div class="label">诊断条目</div>
     </div>
-    {% for type, count in stats.by_type.items() %}
+    {% set type_map = {
+    'infrastructure': '基础设施',
+    'concept': '概念',
+    'source': '源文档',
+    'query': '问答',
+    'diagnosis': '诊断',
+    'entity': '实体',
+    'comparison': '对比',
+    'page': '页面',
+} %}
+{% for type, count in stats.by_type.items() %}
     <div class="stat-card">
         <div class="value">{{ count }}</div>
-        <div class="label">{{ type | title }}</div>
+        <div class="label">{{ type_map.get(type, type) }}</div>
     </div>
     {% endfor %}
 </div>
@@ -41,7 +51,7 @@
             {% for page in pages[:30] %}
             <tr>
                 <td><a href="/page/{{ page.path }}" style="color: #4fc3f7; text-decoration: none;">{{ page.name }}</a></td>
-                <td><span class="badge badge-{{ page.type }}">{{ page.type }}</span></td>
+                <td><span class="badge badge-{{ page.type }}">{{ type_map.get(page.type, page.type) }}</span></td>
                 <td>{{ page.category or page.severity or '-' }}</td>
                 <td>{{ page.updated or '-' }}</td>
                 <td>{{ page.size | filesizeformat }}</td>
