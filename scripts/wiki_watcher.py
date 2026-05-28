@@ -257,6 +257,78 @@ class ModelRouter:
         )
         return resp.choices[0].message.content
 
+    def call_stream(self, system: str, messages: list, max_tokens: int):
+        """Streaming call — yields text chunks. Uses messages array for multi-turn."""
+        provider = self.active_provider
+        model = self.active_model
+        console.print(f"[dim]  → {provider} / {model} [stream][/dim]")
+
+        if provider == 'anthropic':
+            return self._call_anthropic_stream(model, system, messages, max_tokens)
+        else:
+            return self._call_openai_compat_stream(provider, model, system, messages, max_tokens)
+
+    def _call_anthropic_stream(self, model: str, system: str, messages: list, max_tokens: int):
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            raise RuntimeError("Anthropic provider requires: pip install anthropic")
+        client = _anthropic.Anthropic(
+            api_key=os.environ.get(
+                self.cfg['providers'].get('anthropic', {}).get('api_key_env', 'ANTHROPIC_API_KEY')
+            )
+        )
+        with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+        ) as stream:
+            for event in stream:
+                if event.type == 'text':
+                    yield event.text
+
+    def _call_openai_compat_stream(self, provider: str, model: str,
+                                    system: str, messages: list, max_tokens: int):
+        try:
+            import openai as _openai
+        except ImportError:
+            raise RuntimeError(f"{provider} provider requires: pip install openai")
+        pconf = self.cfg['providers'].get(provider, {})
+        base_url = pconf.get('base_url')
+        api_key_env = pconf.get('api_key_env', '')
+        api_key = pconf.get('api_key') or os.environ.get(api_key_env, 'none')
+
+        if base_url and base_url.rstrip('/').endswith('/chat/completions'):
+            base_url = base_url.rstrip('/')[:-len('/chat/completions')]
+
+        if base_url:
+            from urllib.parse import urlparse
+            host = urlparse(base_url).hostname or ''
+            _local_prefixes = ('127.', '10.', '192.168.', '172.', 'localhost', '::1')
+            if any(host == p or host.startswith(p) for p in _local_prefixes):
+                existing = os.environ.get('NO_PROXY', '')
+                if host not in existing:
+                    os.environ['NO_PROXY'] = f"{existing},{host},localhost,127.0.0.1".lstrip(',')
+                    os.environ['no_proxy'] = os.environ['NO_PROXY']
+
+        kwargs = {"api_key": api_key, "max_retries": 2}
+        if base_url:
+            kwargs["base_url"] = base_url
+
+        client = _openai.OpenAI(**kwargs)
+        oai_messages = [{"role": "system", "content": system}] + messages
+        resp = client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=oai_messages,
+            stream=True,
+        )
+        for chunk in resp:
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                yield delta.content
+
 
 # ── LLM call layer ────────────────────────────────────────────────────────────
 class WikiAgent:

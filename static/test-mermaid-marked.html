@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head><title>Marked+Mermaid Test</title></head>
+<body>
+<div id="input">
+graph TD
+  A --> B
+</div>
+<div id="output"></div>
+<div id="classes"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="/static/mermaid.min.js"></script>
+<script>
+function renderMarkdown(md) {
+    // Pre-process: detect standalone mermaid graphs
+    var lines = md.split('\n');
+    var result = [];
+    var inGraph = false;
+    var graphLines = [];
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var isGraphStart = /^graph\s+(TD|LR|RL|TB|BT)(\s+.*)?$/.test(line);
+        var isBlank = /^\s*$/.test(line);
+        var isHeader = /^#{1,3}\s/.test(line);
+        var isCodeBlock = /^```/.test(line);
+        
+        if (inGraph) {
+            if (isBlank || isHeader || isCodeBlock) {
+                result.push('');
+                result.push('```mermaid');
+                result.push.apply(result, graphLines);
+                result.push('```');
+                result.push('');
+                inGraph = false;
+                graphLines = [];
+                result.push(line);
+            } else {
+                graphLines.push(line);
+            }
+        } else if (isGraphStart) {
+            inGraph = true;
+            graphLines.push(line);
+        } else {
+            result.push(line);
+        }
+    }
+    if (inGraph) {
+        result.push('');
+        result.push('```mermaid');
+        result.push.apply(result, graphLines);
+        result.push('```');
+        result.push('');
+    }
+    var html = marked.parse(result.join('\n') || '');
+    console.log('marked output:', html);
+    // Check what classes are used
+    var codes = document.createElement('div');
+    codes.innerHTML = html;
+    var codeEls = codes.querySelectorAll('code');
+    var classInfo = [];
+    for (var i = 0; i < codeEls.length; i++) {
+        classInfo.push('code class: [' + codeEls[i].className + ']');
+    }
+    document.getElementById('classes').textContent = classInfo.join(' | ');
+    
+    // Handle mermaid code blocks
+    html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi, function(m, code) {
+        return '<div class="mermaid">' + code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim() + '</div>';
+    });
+    
+    document.getElementById('output').innerHTML = html;
+    console.log('final HTML:', html);
+}
+
+window.addEventListener('load', function() {
+    renderMarkdown('graph TD\n  A --> B\n  B --> C');
+});
+</script>
+</body>
+</html>

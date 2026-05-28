@@ -21,7 +21,7 @@ import threading
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -473,6 +473,142 @@ def api_query():
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/query/stream', methods=['POST'])
+def api_query_stream():
+    """API: Streaming Q&A with conversation history support.
+
+    Expects:
+    {
+        "question": "current question",
+        "history": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}],
+        "max_history": 5 (optional, default 5)
+    }
+
+    Returns SSE stream with chunks:
+    - {"type": "sources", "data": [...]}
+    - {"type": "chunk", "data": "text"}
+    - {"type": "done", "data": null}
+    - {"type": "error", "data": "message"}
+    """
+    data = request.json
+    question = data.get('question', '')
+    history = data.get('history', [])
+    max_history = min(data.get('max_history', 5), 10)  # cap at 10
+
+    if not question:
+        return jsonify({'error': '问题不能为空'}), 400
+
+    _wiki_root = config.root
+
+    def generate():
+        wiki_root = _wiki_root
+        try:
+            # Step 1: Vector search for current question only
+            query_vector = embedding_client.embed_single(question)
+            results = vector_store.search(query_vector, top_k=8)
+
+            # Send sources
+            sources = []
+            for r in results:
+                sources.append({
+                    'path': r['page_path'],
+                    'title': r['title'],
+                    'score': round(r['score'], 4),
+                })
+            yield f"data: {json.dumps({'type': 'sources', 'data': sources})}\n\n"
+
+            if not results:
+                yield f"data: {json.dumps({'type': 'error', 'data': '在知识库中未找到相关内容。请先导入源材料。'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'data': None})}\n\n"
+                return
+
+            # Step 2: Read page contents
+            context_parts = []
+            for r in results:
+                full_path = wiki_root / r['page_path']
+                if full_path.exists():
+                    content = full_path.read_text(encoding='utf-8')
+                    content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL).strip()
+                    if content:
+                        context_parts.append(
+                            f"=== {r['title']} ({r['page_path']}, score: {r['score']:.3f}) ===\n"
+                            f"{content[:4000]}"  # limit per page to control context size
+                        )
+
+            if not context_parts:
+                yield f"data: {json.dumps({'type': 'error', 'data': '找到相关页面但无法读取内容。'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'data': None})}\n\n"
+                return
+
+            context = '\n\n'.join(context_parts)
+
+            # Step 3: Build conversation messages (last N turns)
+            recent_history = history[-(max_history * 2):] if max_history > 0 else []
+            messages = []
+            for msg in recent_history:
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                # Truncate long assistant messages
+                if role == 'assistant' and len(content) > 1500:
+                    content = content[:1500] + '...（已截断）'
+                messages.append({'role': role, 'content': content})
+            messages.append({'role': 'user', 'content': question})
+
+            # Step 4: Build system prompt
+            system_prompt = """你是一个基础设施和IT运维知识库的智能问答助手。
+
+请根据提供的 wiki 页面内容回答用户的问题。回答要准确、简洁，并标注信息来源。
+
+规则：
+1. 仅使用提供的 wiki 内容回答问题，不要编造信息。
+2. 用以下格式标注来源：[来源: page_path]
+3. 如果 wiki 中没有足够信息，请明确说明。
+4. 基础设施相关问题请包含具体细节（IP地址、配置信息、依赖关系等）。
+5. 如果多个来源存在冲突，请指出冲突并分别标注来源。
+6. 用清晰的 Markdown 格式组织回答。
+7. 所有描述性语言必须使用中文回答，但源数据内容（代码、配置、命令等）保持原文不变。
+8. 这是多轮对话，请结合上下文连贯回答。如果用户追问或说"继续"，请基于上文回答。
+
+Mermaid 图表规则（如果用户要求画图）：
+- 使用 ```mermaid 代码块包裹
+- 只使用 mermaid v10 兼容语法，禁止使用以下 v11+ 特性：
+  - 禁止在 subgraph 内使用 direction 语句
+  - 禁止使用 classDef + class 语句（改用 style 语句）
+  - 禁止在节点标签中使用 ~ 符号
+- 使用以下基本语法：
+  - 节点: NodeID[显示文本] 或 NodeID((显示文本))
+  - 连接: A --> B 或 A -.-> B（虚线）
+  - 子图: subgraph 名称  ... end
+  - 样式: style NodeID fill:#颜色,stroke:#颜色,stroke-width:2px
+- 确保所有括号 [] () "" 配对闭合
+- graph 代码块结束后再写说明文字，不要混在一起"""
+
+            # Step 5: Build user message with context
+            user_message = f"""问题: {question}
+
+---
+相关 wiki 页面:
+{context[:12000]}"""
+            messages[-1] = {'role': 'user', 'content': user_message}
+
+            # Step 6: Stream LLM response
+            from scripts.wiki_watcher import ModelRouter
+            router = ModelRouter(wiki_root)
+
+            for chunk in router.call_stream(system_prompt, messages, max_tokens=4000):
+                clean = re.sub(r'<think>.*?</think>', '', chunk, flags=re.DOTALL)
+                if clean:
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': clean})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done', 'data': None})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'data': None})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 
 @app.route('/api/search', methods=['POST'])

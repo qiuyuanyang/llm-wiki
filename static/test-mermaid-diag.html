@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Mermaid Diagnostic</title>
+<style>
+body { background: #1a1a2e; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+.step { margin: 10px 0; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; }
+.pass { border-color: #4caf50; color: #4caf50; }
+.fail { border-color: #f44336; color: #f44336; }
+.mermaid { background: #0f0f1a; padding: 12px; border-radius: 8px; margin: 8px 0; border: 1px dashed #4fc3f7; }
+</style>
+</head>
+<body>
+<h2>🔍 Mermaid 渲染诊断</h2>
+<div id="log"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="/static/mermaid.min.js" onerror="window._mermaidLoadFail=true"></script>
+
+<script>
+var log = [];
+function msg(s, ok) {
+    log.push({text: s, ok: ok});
+    var d = document.getElementById('log');
+    d.innerHTML = log.map(function(x) {
+        return '<div class="step ' + (x.ok === true ? 'pass' : x.ok === false ? 'fail' : '') + '">' + x.text + '</div>';
+    }).join('');
+}
+
+window.addEventListener('load', function() {
+    // Step 1: Check marked
+    msg('Step 1: marked loaded = ' + (typeof marked !== 'undefined'), typeof marked !== 'undefined' ? true : false);
+    
+    // Step 2: Check mermaid
+    msg('Step 2: mermaid loaded = ' + (typeof mermaid !== 'undefined'), typeof mermaid !== 'undefined' ? true : false);
+    
+    // Step 3: Check mermaid API
+    if (typeof mermaid !== 'undefined') {
+        msg('Step 3a: mermaid.initialize = ' + typeof mermaid.initialize, typeof mermaid.initialize === 'function' ? true : false);
+        msg('Step 3b: mermaid.render = ' + typeof mermaid.render, typeof mermaid.render === 'function' ? true : false);
+        
+        // Initialize
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+        msg('Step 4: mermaid initialized', true);
+        
+        // Step 5: Test render
+        var graphDef = 'graph TD\n  A[Web] --> B[Server]\n  B --> C[DB]';
+        msg('Step 5: Testing render with: ' + graphDef.replace(/\n/g, ' | '), true);
+        
+        mermaid.render('diag-test', graphDef).then(function(result) {
+            msg('Step 6: render SUCCESS! SVG length=' + result.svg.length, true);
+            // Show the rendered SVG
+            var container = document.createElement('div');
+            container.className = 'mermaid';
+            container.innerHTML = result.svg;
+            document.body.appendChild(container);
+        }).catch(function(e) {
+            msg('Step 6: render FAILED: ' + e.message, false);
+            msg('Error name: ' + e.name, false);
+            if (e.hash) msg('Error hash: ' + JSON.stringify(e.hash).substring(0, 200), false);
+        });
+    } else {
+        msg('Step 2b: _mermaidLoadFail = ' + (window._mermaidLoadFail || 'false'), false);
+        msg('Step 2c: Check network tab for /static/mermaid.min.js load status', null);
+    }
+});
+</script>
+</body>
+</html>

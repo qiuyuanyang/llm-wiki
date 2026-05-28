@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mermaid v10 渲染测试</title>
+<style>
+body { background: #0f0f1a; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+.step { margin: 10px 0; padding: 12px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; }
+.pass { border-color: #4caf50; } .fail { border-color: #f44336; }
+.mermaid { background: #1a1a2e; padding: 16px; border-radius: 8px; margin: 12px 0; border: 1px solid #4fc3f7; }
+</style>
+</head>
+<body>
+<h2>🔍 Mermaid v10.9.1 渲染测试</h2>
+<div id="steps"></div>
+
+<script src="/static/mermaid.min.js" onerror="document.getElementById('err').textContent='❌ mermaid.min.js 加载失败'"></script>
+<div id="err" class="step" style="display:none"></div>
+
+<script>
+function step(text, ok) {
+    var d = document.createElement('div');
+    d.className = 'step ' + (ok === true ? 'pass' : ok === false ? 'fail' : '');
+    d.textContent = text;
+    document.getElementById('steps').appendChild(d);
+}
+
+window.addEventListener('load', function() {
+    step('window.mermaid exists: ' + (typeof mermaid !== 'undefined'), typeof mermaid !== 'undefined');
+    if (typeof mermaid === 'undefined') {
+        step('mermaid 未加载，检查 /static/mermaid.min.js', false);
+        return;
+    }
+    
+    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    step('mermaid initialized', true);
+    
+    var graphDef = 'graph TD\n  A[Web Server] --> B[Load Balancer]\n  B --> C[(Database)]\n  C --> D[Backup Server]';
+    step('Testing render with graph definition...', true);
+    
+    mermaid.render('test-graph-1', graphDef).then(function(result) {
+        step('✅ 渲染成功！SVG 长度: ' + result.svg.length, true);
+        var container = document.createElement('div');
+        container.className = 'mermaid';
+        container.innerHTML = result.svg;
+        document.body.appendChild(container);
+    }).catch(function(e) {
+        step('❌ 渲染失败: ' + e.message, false);
+    });
+});
+</script>
+</body>
+</html>

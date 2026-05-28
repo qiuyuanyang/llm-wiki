@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mermaid Debug Test</title>
+<style>
+body { background: #0f0f1a; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+.mermaid { background: #1a1a2e; padding: 12px; border-radius: 8px; margin: 8px 0; border: 1px solid #2a2a4a; }
+pre { background: #0f0f1a; padding: 12px; border-radius: 8px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h2>Mermaid Debug Test</h2>
+<div id="status"></div>
+
+<div class="mermaid" id="test-graph">
+graph TD
+  A[Web] --> B[API Server]
+  B --> C[Database]
+</div>
+
+<script src="/static/mermaid.min.js" onerror="document.getElementById('status').innerHTML='❌ mermaid.min.js failed to load'"></script>
+<script>
+var status = document.getElementById('status');
+
+window.addEventListener('load', function() {
+    var info = [];
+    
+    if (window.mermaid) {
+        info.push('✅ mermaid loaded');
+        info.push('mermaid.initialize exists: ' + (typeof mermaid.initialize === 'function'));
+        info.push('mermaid.render exists: ' + (typeof mermaid.render === 'function'));
+        info.push('mermaid.run exists: ' + (typeof mermaid.run === 'function'));
+        info.push('mermaid.mermaidAPI exists: ' + (typeof mermaid.mermaidAPI !== 'undefined'));
+        
+        // Try to get version
+        try {
+            info.push('mermaid version: ' + (mermaid.version || 'unknown'));
+        } catch(e) { info.push('version access error: ' + e.message); }
+        
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+        info.push('✅ initialized');
+        
+        status.innerHTML = info.join('<br>');
+        
+        // Try to render
+        setTimeout(async function() {
+            var el = document.getElementById('test-graph');
+            var graphDef = el.textContent.trim();
+            info.push('Graph def: ' + graphDef.substring(0, 60));
+            
+            try {
+                var result = await mermaid.render('test-svg', graphDef);
+                el.innerHTML = result.svg;
+                info.push('✅ render() succeeded');
+                status.innerHTML = info.join('<br>');
+            } catch(e) {
+                info.push('❌ render() failed: ' + e.message);
+                status.innerHTML = info.join('<br>');
+                el.innerHTML = '<span style="color:#ef9a9a">Render error: ' + e.message + '</span>';
+            }
+        }, 500);
+    } else {
+        status.innerHTML = '❌ window.mermaid is undefined';
+    }
+});
+</script>
+</body>
+</html>

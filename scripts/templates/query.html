@@ -1,79 +1,290 @@
 {% extends "base.html" %}
 {% block title %}智能问答 - LLM Wiki{% endblock %}
 {% block content %}
-<h1 style="color: #4fc3f7; margin-bottom: 24px;">🤖 智能问答</h1>
+<style>
+.query-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.btn-new-chat { background: #2a2a4a; color: #4fc3f7; border: 1px solid #4fc3f7; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.btn-new-chat:hover { background: #4fc3f7; color: #0f0f1a; }
+.chat-container { display: flex; flex-direction: column; gap: 16px; max-height: 60vh; overflow-y: auto; padding: 8px 0; scrollbar-width: thin; scrollbar-color: #2a2a4a #0f0f1a; }
+.chat-container::-webkit-scrollbar { width: 6px; }
+.chat-container::-webkit-scrollbar-track { background: #0f0f1a; }
+.chat-container::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+.message { display: flex; gap: 10px; max-width: 85%; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.user-msg { align-self: flex-end; flex-direction: row-reverse; margin-left: auto; }
+.assistant-msg { align-self: flex-start; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; background: #1a1a2e; }
+.user-msg .avatar { background: #4fc3f7; font-size: 16px; }
+.msg-content { flex: 1; }
+.msg-bubble { padding: 12px 16px; border-radius: 16px; line-height: 1.6; word-break: break-word; font-size: 14px; }
+.user-msg .msg-bubble { background: #4fc3f7; color: #0f0f1a; border-bottom-right-radius: 4px; }
+.assistant-msg .msg-bubble { background: #1a1a2e; color: #e0e0e0; border: 1px solid #2a2a4a; border-bottom-left-radius: 4px; }
+.msg-bubble pre { background: #0f0f1a; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
+.msg-bubble code { background: #0f0f1a; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+.msg-bubble pre code { background: none; padding: 0; }
+.msg-bubble p { margin: 8px 0; }
+.msg-bubble p:first-child { margin-top: 0; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-bubble h3 { color: #81c784; margin: 12px 0 6px; font-size: 15px; }
+.msg-bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+.msg-bubble th, .msg-bubble td { border: 1px solid #2a2a4a; padding: 6px 10px; text-align: left; }
+.msg-bubble th { background: #0f0f1a; }
+.msg-bubble a { color: #4fc3f7; }
+.msg-bubble ul, .msg-bubble ol { padding-left: 20px; }
+.msg-bubble li { margin: 4px 0; }
+.msg-bubble blockquote { border-left: 3px solid #4fc3f7; padding-left: 12px; color: #888; margin: 8px 0; }
+.mermaid { background: #0f0f1a; padding: 12px; border-radius: 8px; margin: 8px 0; overflow: auto; max-width: 100%; }
+.mermaid svg { max-width: 100%; height: auto; }
+.mermaid-zoom-wrapper { max-height: 70vh; }
+.typing-indicator { display: inline-flex; gap: 4px; padding: 4px 0; }
+.typing-indicator span { width: 6px; height: 6px; border-radius: 50%; background: #4fc3f7; animation: typing 1.4s infinite; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing { 0%,60%,100%{opacity:0.3;transform:scale(0.8)} 30%{opacity:1;transform:scale(1)} }
+.input-area { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2a2a4a; }
+.input-wrapper { display: flex; gap: 10px; align-items: flex-end; }
+.input-wrapper textarea { flex: 1; padding: 12px 16px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; color: #e0e0e0; font-size: 14px; resize: none; outline: none; line-height: 1.5; max-height: 120px; overflow-y: auto; }
+.input-wrapper textarea:focus { border-color: #4fc3f7; }
+.input-wrapper button { padding: 12px 24px; background: #4fc3f7; color: #0f0f1a; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+.input-wrapper button:hover { background: #29b6f6; }
+.input-wrapper button:disabled { opacity: 0.5; cursor: not-allowed; }
+.source-link { color: #4fc3f7; text-decoration: none; font-size: 12px; background: #1a1a2e; padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0; display: inline-block; border: 1px solid #2a2a4a; }
+.source-link:hover { background: #2a2a4a; }
+</style>
 
-<div class="query-box">
-    <textarea id="question" placeholder="输入你的问题，例如：web-server-01 的 IP 地址是多少？&#10;MySQL 主从复制如何配置？"></textarea>
-    <button onclick="submitQuery()" id="submitBtn">提问</button>
+<div class="query-header">
+    <h1 style="color:#4fc3f7;margin:0;">🤖 智能问答</h1>
+    <button onclick="newConversation()" class="btn-new-chat">✚ 新对话</button>
 </div>
 
-<div id="loading" class="loading" style="display: none;">
-    <div class="spinner"></div>
-    <p style="margin-top: 12px;">正在搜索和生成回答...</p>
+<div class="chat-container" id="chatContainer">
+    <div class="message assistant-msg" id="welcomeMsg">
+        <div class="avatar">🤖</div>
+        <div class="msg-content"><div class="msg-bubble">
+你好！我是 LLM Wiki 智能问答助手，可以帮你查询基础设施和 IT 运维知识库。
+<br><br>
+试试问我：<br>
+• 某台服务器的 IP 和配置？<br>
+• 数据库主从复制如何设置？<br>
+• 最近的网络拓扑和防火墙规则？<br>
+• 容灾演练做了什么变更？
+</div></div>
+    </div>
 </div>
 
-<div id="answer" style="display: none;">
-    <div class="answer-box">
-        <h3>📝 回答</h3>
-        <div class="answer-content" id="answerContent"></div>
-        <div class="source-list" id="sourceList"></div>
+<div class="input-area">
+    <div class="input-wrapper">
+        <textarea id="questionInput" placeholder="输入你的问题... (Ctrl+Enter 发送)" rows="1"></textarea>
+        <button onclick="submitQuestion()" id="sendBtn">发送</button>
+    </div>
+    <div id="sourcesContainer" style="display:none;margin-top:8px;">
+        <span style="color:#888;font-size:12px;">📚 参考来源：</span>
+        <span id="sourcesList"></span>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function submitQuery() {
-    const question = document.getElementById('question').value.trim();
-    if (!question) return;
+var conversationId = 'conv_' + Date.now();
+var convHistory = [];
+var isStreaming = false;
+var nextTurnId = 0;
 
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('answer').style.display = 'none';
-    document.getElementById('submitBtn').disabled = true;
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(new RegExp(String.fromCharCode(34),'g'),'&quot;');
+}
 
-    fetch('/api/query', {
+function loadConversation() {
+    try {
+        var saved = localStorage.getItem('wiki_qa_' + conversationId);
+        if (saved) {
+            convHistory = JSON.parse(saved).history || [];
+            var w = document.getElementById('welcomeMsg');
+            if (w) w.parentNode.removeChild(w);
+            for (var i = 0; i < convHistory.length; i++) {
+                addBubble(convHistory[i].role, convHistory[i].content, false);
+            }
+        }
+    } catch(e) {}
+}
+
+function saveConversation() {
+    try { localStorage.setItem('wiki_qa_' + conversationId, JSON.stringify({history: convHistory})); } catch(e) {}
+}
+
+function newConversation() {
+    conversationId = 'conv_' + Date.now();
+    convHistory = [];
+    localStorage.removeItem('wiki_qa_' + conversationId);
+    document.getElementById('chatContainer').innerHTML = '<div class="message assistant-msg" id="welcomeMsg"><div class="avatar">\uD83E\uDD16</div><div class="msg-content"><div class="msg-bubble">\u4F60\u597D\uFF01\u6211\u662F LLM Wiki \u667A\u80FD\u95EE\u7B54\u52A9\u624B\uFF0C\u53EF\u4EE5\u5E2E\u4F60\u67E5\u8BE2\u57FA\u7840\u8BBE\u65BD\u548C IT \u8FD0\u7EF4\u77E5\u8BC6\u5E93\u3002<br><br>\u8BD5\u8BD5\u95EE\u6211\uFF1A<br>\u2022 \u67D0\u53F0\u670D\u52A1\u5668\u7684 IP \u548C\u914D\u7F6E\uFF1F<br>\u2022 \u6570\u636E\u5E93\u4E3B\u4ECE\u590D\u5236\u5982\u4F55\u8BBE\u7F6E\uFF1F<br>\u2022 \u6700\u8FD1\u7684\u7F51\u7EDC\u62D3\u6251\u548C\u9632\u706B\u5899\u89C4\u5219\uFF1F<br>\u2022 \u5BB9\u707E\u6F14\u7EC3\u505A\u4E86\u4EC0\u4E48\u53D8\u66F4\uFF1F</div></div></div>';
+    document.getElementById('sourcesContainer').style.display = 'none';
+}
+
+function addBubble(role, content, doScroll) {
+    var container = document.getElementById('chatContainer');
+    var div = document.createElement('div');
+    div.className = 'message ' + (role === 'user' ? 'user-msg' : 'assistant-msg');
+
+    var av = document.createElement('div');
+    av.className = 'avatar';
+    av.textContent = role === 'user' ? '\uD83D\uDC64' : '\uD83E\uDD16';
+    div.appendChild(av);
+
+    var mc = document.createElement('div');
+    mc.className = 'msg-content';
+    div.appendChild(mc);
+
+    var bub = document.createElement('div');
+    bub.className = 'msg-bubble';
+    if (role === 'user') {
+        bub.textContent = content;
+    } else {
+        bub.innerHTML = renderMarkdown(content || '');
+    }
+    mc.appendChild(bub);
+
+    container.appendChild(div);
+    if (doScroll !== false) container.scrollTop = container.scrollHeight;
+    return bub;
+}
+
+function submitQuestion() {
+    var input = document.getElementById('questionInput');
+    var question = input.value.trim();
+    if (!question || isStreaming) return;
+
+    var w = document.getElementById('welcomeMsg');
+    if (w) w.parentNode.removeChild(w);
+
+    addBubble('user', question);
+    convHistory.push({ role: 'user', content: question });
+    saveConversation();
+    input.value = '';
+    input.style.height = 'auto';
+
+    doStream(question);
+}
+
+function doStream(question) {
+    isStreaming = true;
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('sourcesContainer').style.display = 'none';
+
+    var container = document.getElementById('chatContainer');
+    var containerRectBefore = container.getBoundingClientRect();
+    for (var ci = 0; ci < container.children.length; ci++) {
+    }
+
+    // Build message entirely with createElement
+    var msgDiv = document.createElement('div');
+    msgDiv.className = 'message assistant-msg';
+    var turnNum = ++nextTurnId;
+    msgDiv.setAttribute('data-turn', turnNum);
+
+    var avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = '\uD83E\uDD16';
+    msgDiv.appendChild(avatar);
+
+    var msgContent = document.createElement('div');
+    msgContent.className = 'msg-content';
+
+    // THE bubble - this is the ONLY element we ever update for this turn
+    var bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.setAttribute('data-turn-id', turnNum);
+
+    // Add typing indicator
+    var typing = document.createElement('div');
+    typing.className = 'typing-indicator';
+    for (var ti = 0; ti < 3; ti++) {
+        typing.appendChild(document.createElement('span'));
+    }
+    bubble.appendChild(typing);
+    msgContent.appendChild(bubble);
+    msgDiv.appendChild(msgContent);
+
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+
+    for (var ci2 = 0; ci2 < container.children.length; ci2++) {
+    }
+
+    var fullText = '';
+
+    fetch('/api/query/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question })
-    })
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('submitBtn').disabled = false;
+        body: JSON.stringify({ question: question, history: convHistory.slice(-10), max_history: 5 })
+    }).then(function(response) {
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
 
-        if (data.error) {
-            alert('错误: ' + data.error);
-            return;
-        }
+        function pump() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    if (fullText) {
+                        convHistory.push({ role: 'assistant', content: fullText });
+                        saveConversation();
+                    }
+                    isStreaming = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    return;
+                }
 
-        // Render answer with proper markdown
-        const html = renderMarkdown(data.answer);
-        document.getElementById('answerContent').innerHTML = html;
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
 
-        // Render sources
-        let sourcesHtml = '<h3 style="color: #81c784; margin-bottom: 12px;">📚 参考来源</h3>';
-        if (data.sources && data.sources.length > 0) {
-            data.sources.forEach(s => {
-                sourcesHtml += `<div class="source-item">
-                    <a href="/page/${s.path}">${s.title}</a>
-                    <span class="source-score">相关度: ${s.score}</span>
-                </div>`;
+                for (var j = 0; j < lines.length; j++) {
+                    var line = lines[j];
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        var msg = JSON.parse(line.slice(6));
+                        if (msg.type === 'sources') {
+                            var sc = document.getElementById('sourcesContainer');
+                            var sl = document.getElementById('sourcesList');
+                            var links = '';
+                            for (var k = 0; k < msg.data.length; k++) {
+                                links += '<a class="source-link" href="/page/' + msg.data[k].path + '">' + msg.data[k].title + '</a> ';
+                            }
+                            sl.innerHTML = links;
+                            sc.style.display = 'block';
+                        } else if (msg.type === 'chunk') {
+                            fullText += msg.data;
+                            // DIRECT update using our captured local reference
+                            bubble.innerHTML = renderMarkdown(fullText);
+                            container.scrollTop = container.scrollHeight;
+                        } else if (msg.type === 'error') {
+                            fullText = '';
+                            bubble.innerHTML = '\u274C \u9519\u8BEF: ' + escapeHtml(msg.data);
+                        }
+                    } catch(e) {}
+                }
+
+                return pump();
             });
         }
-        document.getElementById('sourceList').innerHTML = sourcesHtml;
-        document.getElementById('answer').style.display = 'block';
-    })
-    .catch(err => {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('submitBtn').disabled = false;
-        alert('请求失败: ' + err.message);
+
+        return pump();
+    }).catch(function(err) {
+        bubble.innerHTML = '\u274C \u8BF7\u6C42\u5931\u8D25: ' + escapeHtml(err.message);
+        isStreaming = false;
+        document.getElementById('sendBtn').disabled = false;
     });
 }
 
-// Ctrl+Enter to submit
-document.getElementById('question').addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'Enter') submitQuery();
+var questionInput = document.getElementById('questionInput');
+questionInput.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') submitQuestion();
 });
+questionInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+loadConversation();
 </script>
 {% endblock %}

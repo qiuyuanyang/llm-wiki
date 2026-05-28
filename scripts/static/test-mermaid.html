@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mermaid Test</title>
+<style>
+body { background: #0f0f1a; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+.test-section { margin: 20px 0; padding: 16px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; }
+h3 { color: #4fc3f7; }
+pre { background: #0f0f1a; padding: 12px; border-radius: 6px; font-size: 13px; white-space: pre-wrap; }
+.mermaid { background: #0f0f1a; padding: 12px; border-radius: 6px; margin: 8px 0; }
+</style>
+</head>
+<body>
+<h2>Mermaid 渲染测试</h2>
+
+<!-- Test 1: Raw graph text (what the AI returns) -->
+<div class="test-section">
+<h3>Test 1: 原始 graph 文本 (AI 返回的格式)</h3>
+<pre id="test1-input"></pre>
+<h4>经过 renderMarkdown 处理后:</h4>
+<div id="test1-output"></div>
+<h4>实际 DOM 中 mermaid 元素内容:</h4>
+<div id="test1-dom"></div>
+</div>
+
+<!-- Test 2: Graph with blank lines before/after -->
+<div class="test-section">
+<h3>Test 2: 带空行的 mermaid 代码块</h3>
+<pre id="test2-input"></pre>
+<h4>经过 marked 解析后:</h4>
+<div id="test2-output"></div>
+<h4>实际 DOM 中 mermaid 元素内容:</h4>
+<div id="test2-dom"></div>
+</div>
+
+<!-- Test 3: Direct mermaid render -->
+<div class="test-section">
+<h3>Test 3: 直接用 mermaid.render 渲染</h3>
+<div id="test3-input"></div>
+<div id="test3-output"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="/static/mermaid.min.js"></script>
+
+<script>
+// Marked config
+marked.setOptions({
+    breaks: false,
+    gfm: true,
+});
+
+// Mermaid init
+if (window.mermaid) {
+    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    console.log('[test] mermaid loaded, version:', mermaid.version);
+} else {
+    console.error('[test] mermaid NOT loaded!');
+}
+
+// ── Test Data ──
+// This is exactly what the AI returns for a graph
+var aiGraphText = 'graph TD\n  Internet((Internet)) --> PaloAltoFW[Palo Alto FW <br>Security Gateway]\n  PaloAltoFW --> HaProxy[HAProxy LB <br>Load Balancer]\n  HaProxy --> WebCluster[Nginx Web Clusters]\n  WebCluster --> MySQL[(MySQL Primary)]\n  MySQL --> Replicas[(MySQL Replicas)]';
+
+document.getElementById('test1-input').textContent = aiGraphText;
+document.getElementById('test2-input').textContent = '\n```mermaid\n' + aiGraphText + '\n```\n';
+document.getElementById('test3-input').innerHTML = '<pre>' + aiGraphText.replace(/</g,'&lt;') + '</pre>';
+
+// ── renderMarkdown function (copy from base.html) ──
+function renderMarkdown(md) {
+    // Pre-process: detect standalone mermaid graphs
+    var lines = md.split('\n');
+    var result = [];
+    var inGraph = false;
+    var graphLines = [];
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var isGraphStart = /^graph\s+(TD|LR|RL|TB|BT)(\s+.*)?$/.test(line);
+        var isBlank = /^\s*$/.test(line);
+        var isHeader = /^#{1,3}\s/.test(line);
+        var isCodeBlock = /^```/.test(line);
+        
+        if (inGraph) {
+            if (isBlank || isHeader || isCodeBlock) {
+                // End of graph block
+                result.push('');
+                result.push('```mermaid');
+                result.push.apply(result, graphLines);
+                result.push('```');
+                result.push('');
+                inGraph = false;
+                graphLines = [];
+                result.push(line);
+            } else {
+                graphLines.push(line);
+            }
+        } else if (isGraphStart) {
+            inGraph = true;
+            graphLines.push(line);
+        } else {
+            result.push(line);
+        }
+    }
+    if (inGraph) {
+        result.push('');
+        result.push('```mermaid');
+        result.push.apply(result, graphLines);
+        result.push('```');
+        result.push('');
+    }
+    
+    var processedMd = result.join('\n');
+    console.log('[test1] processed markdown:');
+    console.log(processedMd);
+    
+    var html = marked.parse(processedMd || '');
+    // Handle mermaid code blocks
+    html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi, function(m, code) {
+        var decoded = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim();
+        return '<div class="mermaid">' + decoded + '</div>';
+    });
+    return html;
+}
+
+// ── Render Test 1 ──
+var html1 = renderMarkdown(aiGraphText);
+document.getElementById('test1-output').innerHTML = html1;
+// Show what the mermaid div actually contains
+var mermaidDivs1 = document.querySelectorAll('#test1-output .mermaid');
+for (var i = 0; i < mermaidDivs1.length; i++) {
+    var textContent = mermaidDivs1[i].textContent;
+    document.getElementById('test1-dom').innerHTML += '<p>textContent: <code>' + textContent.replace(/</g,'&lt;') + '</code></p>';
+}
+
+// ── Render Test 2 (pre-wrapped) ──
+var test2Md = '\n```mermaid\n' + aiGraphText + '\n```\n\nSome other text';
+var html2 = marked.parse(test2Md);
+document.getElementById('test2-output').innerHTML = html2;
+var mermaidDivs2 = document.querySelectorAll('#test2-output .mermaid');
+for (var i = 0; i < mermaidDivs2.length; i++) {
+    var textContent = mermaidDivs2[i].textContent;
+    document.getElementById('test2-dom').innerHTML += '<p>textContent: <code>' + textContent.replace(/</g,'&lt;') + '</code></p>';
+}
+
+// ── Render Test 3: Direct mermaid.render ──
+async function test3() {
+    if (!window.mermaid) {
+        document.getElementById('test3-output').innerHTML = '<p style="color:#ef9a9a;">mermaid not loaded</p>';
+        return;
+    }
+    try {
+        var result = await mermaid.render('test3-svg', aiGraphText);
+        document.getElementById('test3-output').innerHTML = '<p style="color:#81c784;">✅ 渲染成功!</p>' + result.svg;
+    } catch(e) {
+        document.getElementById('test3-output').innerHTML = '<p style="color:#ef9a9a;">❌ 渲染失败: ' + e.message + '</p>';
+    }
+}
+test3();
+
+// ── Render mermaid diagrams in the page ──
+async function renderMermaidDiagrams() {
+    var blocks = document.querySelectorAll('.mermaid:not(.mermaid-rendered)');
+    if (!blocks.length || !window.mermaid) {
+        console.log('[test] No mermaid blocks to render, or mermaid not loaded');
+        return;
+    }
+    for (var i = 0; i < blocks.length; i++) {
+        var el = blocks[i];
+        var textContent = el.textContent || el.innerText || '';
+        console.log('[test] Rendering mermaid block', i, ':', textContent.substring(0, 100));
+        try {
+            var svgId = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+            var result = await mermaid.render(svgId, textContent.trim());
+            el.innerHTML = result.svg;
+            el.classList.add('mermaid-rendered');
+            console.log('[test] Rendered ok');
+        } catch(e) {
+            console.warn('[test] Render error:', e.message);
+            console.warn('[test] GraphDef was:', textContent);
+            el.innerHTML = '<div style="color:#ef9a9a;"><b>Error:</b> ' + e.message + '<br><details><summary>GraphDef</summary><pre>' + textContent.replace(/</g, '&lt;') + '</pre></details></div>';
+            el.classList.add('mermaid-rendered');
+        }
+    }
+}
+
+setTimeout(renderMermaidDiagrams, 500);
+</script>
+</body>
+</html>

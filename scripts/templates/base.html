@@ -347,8 +347,427 @@
 
         // Render markdown helper
         function renderMarkdown(md) {
-            return marked.parse(md || '');
+            // Check if md already contains ```mermaid code blocks
+            var hasMermaidBlock = /```\s*mermaid/.test(md);
+            if (hasMermaidBlock) {
+                // Skip pre-processing, let marked handle existing code blocks directly
+                var html = marked.parse(md || '');
+                html = html.replace(/<pre><code[^>]*class="[^"]*language-mermaid[^"]*"[^>]*>([\s\S]*?)<\/code><\/pre>/gi, function(m, code) {
+                    return '<div class="mermaid">' + code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim() + '</div>';
+                });
+                return html;
+            }
+
+            // Pre-process: detect standalone mermaid graphs (without code fences)
+            var lines = md.split('\n');
+            var result = [];
+            var inGraph = false;
+            var graphLines = [];
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i];
+                var isGraphStart = /^graph\s+(TD|LR|RL|TB|BT)(\s+.*)?$/.test(line);
+                var isBlank = /^\s*$/.test(line);
+                var isHeader = /^#{1,3}\s/.test(line);
+                var isCodeBlock = /^```/.test(line);
+                
+                if (inGraph) {
+                    if (isBlank || isHeader || isCodeBlock) {
+                        // End of graph block - wrap in mermaid code block with blank lines
+                        result.push('');
+                        result.push('```mermaid');
+                        result.push.apply(result, graphLines);
+                        result.push('```');
+                        result.push('');
+                        inGraph = false;
+                        graphLines = [];
+                        result.push(line);
+                    } else {
+                        graphLines.push(line);
+                    }
+                } else if (isGraphStart) {
+                    inGraph = true;
+                    graphLines.push(line);
+                } else {
+                    result.push(line);
+                }
+            }
+            if (inGraph) {
+                result.push('');
+                result.push('```mermaid');
+                result.push.apply(result, graphLines);
+                result.push('```');
+                result.push('');
+            }
+            var html = marked.parse(result.join('\n') || '');
+            // Handle mermaid code blocks
+            html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi, function(m, code) {
+                return '<div class="mermaid">' + code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim() + '</div>';
+            });
+            return html;
         }
+
+        // Fix common Mermaid syntax errors from LLM output
+        function fixMermaidSyntax(src) {
+            var lines = src.split('\n');
+            var result = [];
+            var inSubgraph = [];
+
+            // Pre-process: replace <br> tags with \n
+            src = src.replace(/<br\/?>/gi, '\\n');
+            lines = src.split('\n');
+
+            for (var j = 0; j < lines.length; j++) {
+                var line = lines[j];
+                var trimmed = line.trim();
+
+                if (!trimmed) { result.push(line); continue; }
+
+                // Stop at non-graph content
+                if (/^###/.test(trimmed) || /^## /.test(trimmed) || /^# /.test(trimmed)) break;
+                if (/^\[/.test(trimmed) && (/来源/.test(trimmed) || /wiki\//.test(trimmed))) break;
+                if (/^\*\*/.test(trimmed) || /^\d+\./.test(trimmed) || /^[-*] /.test(trimmed)) break;
+                if (/^\[\[/.test(trimmed)) break;
+
+                // Skip comments
+                if (/^%%/.test(trimmed)) { result.push(line); continue; }
+
+                // Remove v11+ features that v10 doesn't support
+                if (/^direction\s+(TB|BT|LR|RL)/i.test(trimmed)) continue;
+                if (/^classDef\b/.test(trimmed)) continue;
+                // Also remove class lines that reference classDef names (v10 style issue)
+                if (/^class\b/.test(trimmed)) continue;
+
+                // Track subgraph nesting
+                if (/^subgraph\b/.test(trimmed)) {
+                    // Fix: subgraph ID [Label (text)] → subgraph ID [Label text]
+                    // Parentheses inside [] confuse v10 parser (shape detection)
+                    if (/\[.*\(/.test(trimmed)) {
+                        line = line.replace(/\(/g, '').replace(/\)/g, '');
+                        trimmed = line.trim();
+                    }
+                    inSubgraph.push(trimmed);
+                    result.push(line);
+                    continue;
+                }
+                if (trimmed === 'end') {
+                    if (inSubgraph.length > 0) inSubgraph.pop();
+                    result.push(line);
+                    continue;
+                }
+
+                // Fix [ ... ) -> [ ... ]  (AI typo)
+                var openB = (trimmed.match(/\[/g) || []).length;
+                var closeB = (trimmed.match(/\]/g) || []).length;
+                var openP = (trimmed.match(/\(/g) || []).length;
+                var closeP = (trimmed.match(/\)/g) || []).length;
+                if (openB > closeB && closeP > openP) {
+                    var diff = openB - closeB;
+                    for (var r = 0; r < diff; r++) {
+                        var idx = line.lastIndexOf(')');
+                        if (idx >= 0) line = line.substring(0, idx) + ']' + line.substring(idx + 1);
+                    }
+                }
+
+                // Skip truncated lines
+                var qCount = (line.match(/"/g) || []).length;
+                if (qCount % 2 !== 0) continue;
+                var netB = openB - ((line.match(/\]/g) || []).length);
+                if (netB > 0 && !/subgraph/.test(trimmed)) continue;
+
+                result.push(line);
+            }
+
+            // Close unclosed subgraphs
+            while (inSubgraph.length > 0) {
+                inSubgraph.pop();
+                result.push(' end');
+            }
+
+            while (result.length > 0 && result[result.length - 1].trim() === '') {
+                result.pop();
+            }
+
+            return result.join('\n');
+        }
+
+        // Wrap mermaid SVG with zoom/pan controls
+        function wrapMermaidWithZoom(el) {
+            var svg = el.querySelector('svg');
+            if (!svg) return;
+
+            // Add initial viewBox and style if not present
+            if (!svg.getAttribute('viewBox')) {
+                svg.setAttribute('viewBox', '0 0 800 600');
+            }
+
+            // Create wrapper
+            var wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative;overflow:hidden;border-radius:8px;background:#1a1a2e;cursor:grab;';
+            wrapper.className = 'mermaid-zoom-wrapper';
+
+            // Create viewport
+            var viewport = document.createElement('div');
+            viewport.style.cssText = 'transform-origin:0 0;transition:transform 0.15s ease-out;';
+            viewport.className = 'mermaid-zoom-viewport';
+
+            // Move SVG into viewport
+            svg.style.maxWidth = '100%';
+            svg.style.height = 'auto';
+            viewport.appendChild(svg);
+
+            // Create controls
+            var controls = document.createElement('div');
+            controls.style.cssText = 'position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:10;';
+            controls.innerHTML =
+                '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;">⟲</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="fullscreen" title="全屏" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">⛶</button>';
+
+            wrapper.appendChild(controls);
+            wrapper.appendChild(viewport);
+
+            // Create fullscreen modal
+            var modal = document.createElement('div');
+            modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;justify-content:center;align-items:center;';
+            modal.className = 'mermaid-fullscreen-modal';
+            modal.innerHTML =
+                '<div style="position:absolute;top:12px;right:16px;z-index:10;display:flex;gap:8px;">' +
+                    '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:20px;">+</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:20px;">−</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:16px;">⟲</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="close" title="关闭" style="background:rgba(200,40,40,0.9);color:#fff;border:1px solid #ff6666;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:18px;">✕</button>' +
+                '</div>' +
+                '<div class="mermaid-fullscreen-viewport" style="width:95%;height:90%;overflow:hidden;cursor:grab;position:relative;">' +
+                    '<div class="mermaid-fullscreen-content" style="transform-origin:center center;transition:transform 0.15s ease-out;display:flex;justify-content:center;align-items:center;height:100%;"></div>' +
+                '</div>';
+            document.body.appendChild(modal);
+
+            // Replace el contents with wrapper
+            el.innerHTML = '';
+            el.appendChild(wrapper);
+            el.classList.add('mermaid-rendered');
+            el.classList.add('mermaid-zoomable');
+
+            // Zoom state (shared between inline and fullscreen)
+            var scale = 1;
+            var panX = 0;
+            var panY = 0;
+            var isDragging = false;
+            var startX, startY;
+
+            function updateTransform() {
+                viewport.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+            }
+
+            function setScale(newScale, cx, cy) {
+                newScale = Math.max(0.1, Math.min(5, newScale));
+                // Zoom toward center of visible area
+                var rect = wrapper.getBoundingClientRect();
+                var zoomX = cx !== undefined ? cx - rect.left : rect.width / 2;
+                var zoomY = cy !== undefined ? cy - rect.top : rect.height / 2;
+
+                panX = zoomX - (zoomX - panX) * (newScale / scale);
+                panY = zoomY - (zoomY - panY) * (newScale / scale);
+                scale = newScale;
+                updateTransform();
+            }
+
+            // Button controls (inline)
+            controls.addEventListener('click', function(e) {
+                var btn = e.target.closest('.mermaid-zoom-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                var action = btn.getAttribute('data-zoom');
+                if (action === 'in') setScale(scale * 1.3);
+                else if (action === 'out') setScale(scale / 1.3);
+                else if (action === 'reset') { scale = 1; panX = 0; panY = 0; updateTransform(); }
+                else if (action === 'fullscreen') openFullscreen();
+            });
+
+            // Open fullscreen modal
+            function openFullscreen() {
+                var fsViewport = modal.querySelector('.mermaid-fullscreen-viewport');
+                var fsContent = modal.querySelector('.mermaid-fullscreen-content');
+                modal.style.display = 'flex';
+                // Clone SVG
+                var svgClone = svg.cloneNode(true);
+                svgClone.style.maxWidth = 'none';
+                svgClone.style.maxHeight = 'none';
+                svgClone.style.width = 'auto';
+                svgClone.style.height = 'auto';
+                fsContent.innerHTML = '';
+                fsContent.appendChild(svgClone);
+                // Reset zoom for fullscreen
+                scale = 1; panX = 0; panY = 0;
+                fsContent.style.transform = '';
+            }
+
+            // Fullscreen modal controls
+            modal.addEventListener('click', function(e) {
+                var btn = e.target.closest('.mermaid-zoom-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                var action = btn.getAttribute('data-zoom');
+                var fsViewport = modal.querySelector('.mermaid-fullscreen-viewport');
+                var fsContent = modal.querySelector('.mermaid-fullscreen-content');
+                if (action === 'close') {
+                    modal.style.display = 'none';
+                    return;
+                }
+                if (action === 'in') {
+                    scale = Math.min(5, scale * 1.3);
+                    fsContent.style.transform = 'scale(' + scale + ')';
+                } else if (action === 'out') {
+                    scale = Math.max(0.1, scale / 1.3);
+                    fsContent.style.transform = 'scale(' + scale + ')';
+                } else if (action === 'reset') {
+                    scale = 1; panX = 0; panY = 0;
+                    fsContent.style.transform = '';
+                }
+            });
+
+            // ESC to close fullscreen
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    modal.style.display = 'none';
+                }
+            });
+
+            // Click background to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+
+            // Fullscreen wheel zoom
+            var fsViewport = modal.querySelector('.mermaid-fullscreen-viewport');
+            var fsContent = modal.querySelector('.mermaid-fullscreen-content');
+            fsViewport.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+                scale = Math.max(0.1, Math.min(5, scale * factor));
+                fsContent.style.transform = 'scale(' + scale + ')';
+            }, { passive: false });
+
+            // Fullscreen drag to pan
+            fsViewport.addEventListener('mousedown', function(e) {
+                if (e.target.closest('.mermaid-zoom-btn')) return;
+                if (scale <= 1.05) return;
+                var fsStartX = e.clientX - panX;
+                var fsStartY = e.clientY - panY;
+                fsViewport.style.cursor = 'grabbing';
+                e.preventDefault();
+                function fsDrag(e2) {
+                    panX = e2.clientX - fsStartX;
+                    panY = e2.clientY - fsStartY;
+                    fsContent.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+                }
+                function fsEnd() {
+                    fsViewport.style.cursor = 'grab';
+                    document.removeEventListener('mousemove', fsDrag);
+                    document.removeEventListener('mouseup', fsEnd);
+                }
+                document.addEventListener('mousemove', fsDrag);
+                document.addEventListener('mouseup', fsEnd);
+            });
+
+            // Mouse drag to pan
+            wrapper.addEventListener('mousedown', function(e) {
+                if (e.target.closest('.mermaid-zoom-btn')) return;
+                if (scale <= 1.05) return; // Only allow drag when zoomed in
+                isDragging = true;
+                startX = e.clientX - panX;
+                startY = e.clientY - panY;
+                wrapper.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                updateTransform();
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    wrapper.style.cursor = 'grab';
+                }
+            });
+
+            // Mouse wheel zoom
+            wrapper.addEventListener('wheel', function(e) {
+                if (scale <= 0.1 && e.deltaY > 0) return;
+                if (scale >= 5 && e.deltaY < 0) return;
+                e.preventDefault();
+                var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+                setScale(scale * factor, e.clientX, e.clientY);
+            }, { passive: false });
+        }
+
+        // Render all mermaid diagrams on page load
+        var mermaidTimer = null;
+        async function renderMermaidDiagrams() {
+            var blocks = document.querySelectorAll('.mermaid:not(.mermaid-rendered)');
+            if (!blocks.length) return;
+            if (!window.mermaid) { console.log('[mermaid] not loaded yet'); return; }
+            console.log('[mermaid] found', blocks.length, 'blocks to render');
+            for (var i = 0; i < blocks.length; i++) {
+                var el = blocks[i];
+                // Decode HTML entities
+                var tmp = document.createElement('textarea');
+                tmp.innerHTML = el.innerHTML;
+                var graphDef = tmp.value.trim();
+                // Also try textContent as fallback
+                if (!graphDef) graphDef = (el.textContent || el.innerText || '').trim();
+                if (!graphDef) continue;
+                
+                // Fix common LLM syntax errors before rendering
+                graphDef = fixMermaidSyntax(graphDef);
+                
+                console.log('[mermaid] block', i, 'len=', graphDef.length, 'preview=', graphDef.substring(0, 150));
+                try {
+                    var svgId = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+                    var result = await mermaid.render(svgId, graphDef);
+                    el.innerHTML = result.svg;
+                    // Add zoom/pan controls
+                    wrapMermaidWithZoom(el);
+                    console.log('[mermaid] rendered ok');
+                } catch(e) {
+                    console.warn('[mermaid] render error:', e.message);
+                    console.warn('[mermaid] graphDef:', graphDef);
+                    // Show error in DOM so user can see it
+                    var safeMsg = String(e.message || '').replace(/</g, '&lt;');
+                    var safeGraph = String(graphDef || '').replace(/</g, '&lt;');
+                    el.innerHTML = '<div style="color:#ef9a9a;padding:8px;border:1px solid #ef9a9a;border-radius:8px;font-size:13px;">'
+                        + '<b>Mermaid 渲染失败</b><br>' + safeMsg
+                        + '<br><details><summary>查看图定义</summary><pre style="white-space:pre-wrap;font-size:12px;">' + safeGraph + '</pre></details></div>';
+                    el.classList.add('mermaid-rendered');
+                }
+            }
+        }
+        // Check periodically for new mermaid blocks (for streaming chat)
+        setInterval(function() {
+            if (window.mermaid) renderMermaidDiagrams();
+        }, 2000);
+    </script>
+
+    <script>
+        // Load mermaid from local static (Mermaid v10.9.1, self-contained)
+        var mScript = document.createElement('script');
+        mScript.src = '/static/mermaid.min.js';
+        mScript.onerror = function() {
+            console.log('Mermaid not available, graphs will show as source code');
+        };
+        mScript.onload = function() {
+            if (window.mermaid) {
+                mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+                // Render existing mermaid blocks immediately
+                setTimeout(function() { if (window.mermaid) renderMermaidDiagrams(); }, 100);
+            }
+        };
+        document.head.appendChild(mScript);
     </script>
 
     {% block scripts %}{% endblock %}

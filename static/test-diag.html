@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mermaid Diagnostic</title>
+<style>
+body { background: #0f0f1a; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+.step { margin: 12px 0; padding: 12px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; }
+.pass { border-color: #4caf50; }
+.fail { border-color: #f44336; }
+.mermaid { background: #0f0f1a; padding: 12px; border-radius: 8px; margin: 8px 0; }
+</style>
+</head>
+<body>
+<h2>Mermaid Diagnostic</h2>
+<div id="results"></div>
+
+<!-- Load marked.js from CDN (same as base.html) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+  onerror="document.getElementById('step1').className='step fail'; document.getElementById('step1').textContent='Step 1: marked.js FAILED to load'"></script>
+
+<!-- Load highlight.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+
+<!-- Load mermaid from local static (same as base.html) -->
+<script src="/static/mermaid.min.js"
+  onerror="document.getElementById('step2').className='step fail'; document.getElementById('step2').textContent='Step 2: mermaid.min.js FAILED to load'"></script>
+
+<div id="step1" class="step">Step 1: Checking marked.js...</div>
+<div id="step2" class="step">Step 2: Checking mermaid.js...</div>
+<div id="step3" class="step">Step 3: Testing renderMarkdown...</div>
+<div id="step4" class="step">Step 4: Testing mermaid.render...</div>
+<div id="step5" class="step">Step 5: Full pipeline test</div>
+
+<script>
+window.addEventListener('load', function() {
+    var results = [];
+    
+    // Step 1: Check marked
+    var s1 = document.getElementById('step1');
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+        s1.className = 'step pass';
+        s1.textContent = 'Step 1: ✅ marked.js loaded OK';
+    } else {
+        s1.className = 'step fail';
+        s1.textContent = 'Step 1: ❌ marked.js NOT loaded or no marked.parse';
+    }
+    
+    // Step 2: Check mermaid
+    var s2 = document.getElementById('step2');
+    if (typeof mermaid !== 'undefined' && typeof mermaid.initialize === 'function') {
+        s2.className = 'step pass';
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+        s2.textContent = 'Step 2: ✅ mermaid loaded OK, initialized';
+    } else {
+        s2.className = 'step fail';
+        s2.textContent = 'Step 2: ❌ mermaid NOT loaded or missing initialize';
+    }
+    
+    // Step 3: Test renderMarkdown
+    var s3 = document.getElementById('step3');
+    try {
+        var testMd = 'graph TD\n  A[Hello] --> B[World]';
+        var html = renderMarkdown(testMd);
+        s3.className = 'step pass';
+        s3.innerHTML = 'Step 3: ✅ renderMarkdown works<br>Output: ' + html.replace(/</g,'&lt;').substring(0, 200);
+    } catch(e) {
+        s3.className = 'step fail';
+        s3.textContent = 'Step 3: ❌ renderMarkdown error: ' + e.message;
+    }
+    
+    // Step 4: Test mermaid.render
+    var s4 = document.getElementById('step4');
+    if (typeof mermaid !== 'undefined' && typeof mermaid.render === 'function') {
+        var graphDef = 'graph TD\n  A[Hello] --> B[World]';
+        mermaid.render('diag-svg', graphDef).then(function(result) {
+            s4.className = 'step pass';
+            s4.textContent = 'Step 4: ✅ mermaid.render() works, SVG length: ' + result.svg.length;
+        }).catch(function(e) {
+            s4.className = 'step fail';
+            s4.textContent = 'Step 4: ❌ mermaid.render() error: ' + e.message;
+        });
+    } else {
+        s4.className = 'step fail';
+        s4.textContent = 'Step 4: ❌ mermaid.render not a function. typeof=' + typeof (mermaid ? mermaid.render : 'undefined');
+    }
+    
+    // Step 5: Full pipeline - same code as query.html addBubble
+    var s5 = document.getElementById('step5');
+    try {
+        var fullPipeline = 'graph TD\n  A[Web Server] --> B[Load Balancer]\n  B --> C[Database]';
+        var rendered = renderMarkdown(fullPipeline);
+        var testDiv = document.createElement('div');
+        testDiv.innerHTML = rendered;
+        document.body.appendChild(testDiv);
+        var mermaidDivs = testDiv.querySelectorAll('.mermaid');
+        s5.innerHTML = 'Step 5: Pipeline output (before mermaid.render): ' + 
+            (mermaidDivs.length > 0 ? 'Found ' + mermaidDivs.length + ' mermaid div(s), content: [' + mermaidDivs[0].textContent.substring(0, 100) + ']' : 'NO mermaid divs found!') +
+            '<br>Raw HTML: ' + rendered.replace(/</g,'&lt;').substring(0, 300);
+    } catch(e) {
+        s5.className = 'step fail';
+        s5.textContent = 'Step 5: ❌ Pipeline error: ' + e.message;
+    }
+});
+</script>
+</body>
+</html>
