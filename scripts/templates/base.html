@@ -17,6 +17,14 @@
             --badge-medium-text: #333;
             --toggle-bg: #2a2a4a; --toggle-icon: #ffd54f;
             --scrollbar-track: #0f0f1a; --scrollbar-thumb: #2a2a4a;
+            --error-text: #ef9a9a; --error-border: #ef9a9a; --error-color: #c62828;
+            --processing-bg: #1e1e34; --processing-border: #f9a825;
+            --btn-view: #1565c0; --btn-view-hover: #1976d2;
+            --btn-delete: #c62828; --btn-delete-hover: #d32f2f;
+            --btn-download: #00838f; --btn-download-hover: #0097a7;
+            --btn-ingest: #2e7d32; --btn-ingest-hover: #388e3c;
+            --btn-reprocess: #6a1b9a; --btn-reprocess-hover: #7b1fa2;
+            --toast-success: #2e7d32; --toast-error: #c62828; --toast-info: #1565c0;
         }
         [data-theme="light"] {
             --bg: #f5f7fa; --bg-card: #ffffff; --bg-code: #e8ecf0;
@@ -29,6 +37,28 @@
             --badge-medium-text: #1a1a2e;
             --toggle-bg: #d0d7de; --toggle-icon: #6b7280;
             --scrollbar-track: #f5f7fa; --scrollbar-thumb: #c0c8d0;
+            --error-text: #dc2626; --error-border: #fca5a5; --error-color: #dc2626;
+            --processing-bg: #fef3c7; --processing-border: #d97706;
+            --btn-view: #1565c0; --btn-view-hover: #1976d2;
+            --btn-delete: #dc2626; --btn-delete-hover: #ef4444;
+            --btn-download: #00838f; --btn-download-hover: #0097a7;
+            --btn-ingest: #16a34a; --btn-ingest-hover: #15803d;
+            --btn-reprocess: #7c3aed; --btn-reprocess-hover: #6d28d9;
+            --toast-success: #16a34a; --toast-error: #dc2626; --toast-info: #2563eb;
+        }
+
+        /* Mermaid zoom controls — theme-aware */
+        [data-theme="dark"] .mermaid-zoom-btn {
+            background: var(--bg-card); color: var(--accent); border-color: var(--border);
+        }
+        [data-theme="dark"] .mermaid-zoom-btn:hover { opacity: 1 !important; }
+        [data-theme="light"] .mermaid-zoom-btn {
+            background: var(--bg-card); color: var(--accent); border-color: var(--border);
+        }
+        [data-theme="light"] .mermaid-zoom-btn:hover { opacity: 1 !important; }
+        .mermaid-error {
+            color: var(--text-secondary) !important;
+            border-color: var(--accent) !important;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -379,7 +409,7 @@
 
             // Create wrapper
             var wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:relative;overflow:hidden;border-radius:8px;background:#1a1a2e;cursor:grab;';
+            wrapper.style.cssText = 'position:relative;overflow:hidden;border-radius:8px;background:var(--bg-card, #1a1a2e);cursor:grab;';
             wrapper.className = 'mermaid-zoom-wrapper';
 
             // Create viewport
@@ -395,11 +425,14 @@
             // Create controls
             var controls = document.createElement('div');
             controls.style.cssText = 'position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:10;';
+            var btnStyle = 'width:28px;height:28px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:var(--bg-card);color:var(--accent);opacity:0.9;font-size:16px;';
+            var resetBtnStyle = btnStyle.replace('font-size:16px','font-size:12px');
+            var fsBtnStyle = btnStyle.replace('font-size:16px','font-size:14px');
             controls.innerHTML =
-                '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>' +
-                '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>' +
-                '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;">⟲</button>' +
-                '<button class="mermaid-zoom-btn" data-zoom="fullscreen" title="全屏" style="background:rgba(26,26,46,0.9);color:#4fc3f7;border:1px solid #2a2a4a;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">⛶</button>';
+                '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="'+btnStyle+'">+</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="'+btnStyle+'">−</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="'+resetBtnStyle+'">⟲</button>' +
+                '<button class="mermaid-zoom-btn" data-zoom="fullscreen" title="全屏" style="'+fsBtnStyle+'">⛶</button>';
 
             wrapper.appendChild(controls);
             wrapper.appendChild(viewport);
@@ -410,10 +443,10 @@
             modal.className = 'mermaid-fullscreen-modal';
             modal.innerHTML =
                 '<div style="position:absolute;top:12px;right:16px;z-index:10;display:flex;gap:8px;">' +
-                    '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:20px;">+</button>' +
-                    '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:20px;">−</button>' +
-                    '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="background:rgba(26,26,46,0.95);color:#4fc3f7;border:1px solid #4fc3f7;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:16px;">⟲</button>' +
-                    '<button class="mermaid-zoom-btn" data-zoom="close" title="关闭" style="background:rgba(200,40,40,0.9);color:#fff;border:1px solid #ff6666;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:18px;">✕</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="in" title="放大" style="width:36px;height:36px;border-radius:6px;cursor:pointer;border:1px solid var(--accent);background:var(--bg-card);color:var(--accent);opacity:0.95;font-size:20px;display:flex;align-items:center;justify-content:center;">+</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="out" title="缩小" style="width:36px;height:36px;border-radius:6px;cursor:pointer;border:1px solid var(--accent);background:var(--bg-card);color:var(--accent);opacity:0.95;font-size:20px;display:flex;align-items:center;justify-content:center;">−</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="reset" title="重置" style="width:36px;height:36px;border-radius:6px;cursor:pointer;border:1px solid var(--accent);background:var(--bg-card);color:var(--accent);opacity:0.95;font-size:16px;display:flex;align-items:center;justify-content:center;">⟲</button>' +
+                    '<button class="mermaid-zoom-btn" data-zoom="close" title="关闭" style="width:36px;height:36px;border-radius:6px;cursor:pointer;border:1px solid #dc2626;background:#dc2626;color:#fff;opacity:0.95;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>' +
                 '</div>' +
                 '<div class="mermaid-fullscreen-viewport" style="width:95%;height:90%;overflow:hidden;cursor:grab;position:relative;">' +
                     '<div class="mermaid-fullscreen-content" style="transform-origin:center center;transition:transform 0.15s ease-out;display:flex;justify-content:center;align-items:center;height:100%;"></div>' +
@@ -617,7 +650,7 @@
                     // Show error in DOM so user can see it
                     var safeMsg = String(e.message || '').replace(/</g, '&lt;');
                     var safeGraph = String(graphDef || '').replace(/</g, '&lt;');
-                    el.innerHTML = '<div style="color:#ef9a9a;padding:8px;border:1px solid #ef9a9a;border-radius:8px;font-size:13px;">'
+                    el.innerHTML = '<div style="color:var(--error-text, #ef9a9a);padding:8px;border:1px solid var(--error-border, #ef9a9a);border-radius:8px;font-size:13px;" class="mermaid-error">'
                         + '<b>Mermaid 渲染失败</b><br>' + safeMsg
                         + '<br><details><summary>查看图定义</summary><pre style="white-space:pre-wrap;font-size:12px;">' + safeGraph + '</pre></details></div>';
                     el.classList.add('mermaid-rendered');
@@ -650,11 +683,29 @@
     <script>
     // ===== Theme Toggle =====
     (function() {
-        // Load saved theme or default to dark
+        // Load saved theme or detect system preference
         var saved = localStorage.getItem('wiki_theme');
-        var theme = saved || 'dark';
+        var theme = saved;
+        if (!theme) {
+            // Follow system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                theme = 'light';
+            } else {
+                theme = 'dark';
+            }
+        }
         document.documentElement.setAttribute('data-theme', theme);
         updateToggleIcon(theme);
+        // Listen for system preference changes (only if user hasn't manually set)
+        if (!saved && window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                if (!localStorage.getItem('wiki_theme')) {
+                    var t = e.matches ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', t);
+                    updateToggleIcon(t);
+                }
+            });
+        }
     })();
     function toggleTheme() {
         var current = document.documentElement.getAttribute('data-theme') || 'dark';

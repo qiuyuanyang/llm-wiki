@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}故障诊断 - LLM Wiki{% endblock %}
 {% block content %}
-<h1 style="color: #4fc3f7; margin-bottom: 24px;">🔧 故障诊断知识库</h1>
+<h1 style="color: var(--accent); margin-bottom: 24px;">🔧 故障诊断知识库</h1>
 
 <div class="stats-grid">
     <div class="stat-card">
@@ -26,11 +26,11 @@
     {% for d in results %}
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-            <h3 style="color: #4fc3f7;">{{ d.symptom }}</h3>
+            <h3 style="color: var(--accent);">{{ d.symptom }}</h3>
             <span class="badge badge-{{ d.severity }}">{{ d.severity | upper }}</span>
         </div>
         {% if d.cause %}
-        <p style="margin-bottom: 8px;"><strong style="color: #81c784;">原因：</strong>{{ d.cause }}</p>
+        <p style="margin-bottom: 8px;"><strong style="color: var(--success);">原因：</strong>{{ d.cause }}</p>
         {% endif %}
         {% if d.solution %}
         <p style="margin-bottom: 8px;"><strong style="color: var(--h3-color);">解决方案：</strong>{{ d.solution[:300] }}{% if d.solution|length > 300 %}...{% endif %}</p>

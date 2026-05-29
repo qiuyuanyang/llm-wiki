@@ -116,7 +116,7 @@ document.getElementById('searchForm').addEventListener('submit', async function(
         resultsDiv.innerHTML = `<h2 style="color: var(--success); margin: 16px 0 8px;">搜索结果: "${escapeHtml(query)}"</h2>`;
 
         if (data.error) {
-            resultsDiv.innerHTML += `<p style="color:#ef9a9a;">搜索出错: ${escapeHtml(data.error)}</p>`;
+            resultsDiv.innerHTML += `<p style="color:var(--error-text, #ef9a9a);">搜索出错: ${escapeHtml(data.error)}</p>`;
         } else if (data.length === 0) {
             resultsDiv.innerHTML += `<p class="no-results">未找到相关结果。</p>`;
         } else {
@@ -139,7 +139,7 @@ document.getElementById('searchForm').addEventListener('submit', async function(
         btn.textContent = '🔍 搜索';
         const resultsDiv = document.createElement('div');
         resultsDiv.id = 'resultsArea';
-        resultsDiv.innerHTML = `<p style="color:#ef9a9a;">请求失败: ${escapeHtml(String(err))}</p>`;
+        resultsDiv.innerHTML = `<p style="color:var(--error-text, #ef9a9a);">请求失败: ${escapeHtml(String(err))}</p>`;
         container.appendChild(resultsDiv);
     }
 });

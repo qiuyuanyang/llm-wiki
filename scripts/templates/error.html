@@ -2,9 +2,9 @@
 {% block title %}错误 - LLM Wiki{% endblock %}
 {% block content %}
 <div style="text-align: center; padding: 80px 20px;">
-    <h1 style="color: #c62828; font-size: 48px; margin-bottom: 16px;">⚠️</h1>
-    <h2 style="color: #4fc3f7; margin-bottom: 16px;">出错了</h2>
-    <p style="color: #888; margin-bottom: 32px;">{{ error }}</p>
-    <a href="/" style="color: #4fc3f7; text-decoration: none;">← 返回首页</a>
+    <h1 style="color: var(--error-color, #c62828); font-size: 48px; margin-bottom: 16px;">⚠️</h1>
+    <h2 style="color: var(--accent); margin-bottom: 16px;">出错了</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 32px;">{{ error }}</p>
+    <a href="/" style="color: var(--accent); text-decoration: none;">← 返回首页</a>
 </div>
 {% endblock %}

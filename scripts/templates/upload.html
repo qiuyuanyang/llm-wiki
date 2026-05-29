@@ -7,7 +7,7 @@
         padding: 48px 24px; text-align: center; background: var(--bg-card);
         transition: border-color 0.3s, background 0.3s; cursor: pointer; margin-bottom: 24px;
     }
-    .upload-area:hover, .upload-area.dragover { border-color: var(--accent); background: #1e1e34; }
+    .upload-area:hover, .upload-area.dragover { border-color: var(--accent); background: var(--processing-bg); }
     .upload-area .icon { font-size: 48px; margin-bottom: 12px; }
     .upload-area .text { font-size: 16px; color: var(--text-tertiary); }
     .upload-area .text strong { color: var(--accent); cursor: pointer; }
@@ -45,7 +45,7 @@
         padding: 16px 20px; margin-bottom: 0; display: flex; align-items: center; gap: 16px;
         transition: border-color 0.2s;
     }
-    .file-card.processing { border-color: #f9a825; background: #1e1e34; }
+    .file-card.processing { border-color: var(--processing-border); background: var(--processing-bg); }
     .file-icon { font-size: 28px; flex-shrink: 0; width: 40px; text-align: center; }
     .file-info { flex: 1; min-width: 0; }
     .file-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -71,16 +71,16 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .btn-view { background: #1565c0; color: #fff; }
-    .btn-view:hover:not(:disabled) { background: #1976d2; }
-    .btn-delete { background: #c62828; color: #fff; }
-    .btn-delete:hover:not(:disabled) { background: #d32f2f; }
-    .btn-download { background: #00838f; color: #fff; }
-    .btn-download:hover { background: #0097a7; }
-    .btn-ingest { background: #2e7d32; color: #fff; }
-    .btn-ingest:hover:not(:disabled) { background: #388e3c; }
-    .btn-reprocess { background: #6a1b9a; color: #fff; }
-    .btn-reprocess:hover:not(:disabled) { background: #7b1fa2; }
+    .btn-view { background: transparent; color: var(--btn-view); border: 1px solid var(--btn-view); }
+    .btn-view:hover:not(:disabled) { background: var(--btn-view); color: #fff; }
+    .btn-delete { background: var(--btn-delete); color: #fff; border: 1px solid var(--btn-delete); }
+    .btn-delete:hover:not(:disabled) { background: var(--btn-delete-hover); }
+    .btn-download { background: transparent; color: var(--btn-download); border: 1px solid var(--btn-download); }
+    .btn-download:hover { background: var(--btn-download); color: #fff; }
+    .btn-ingest { background: transparent; color: var(--btn-ingest); border: 1px solid var(--btn-ingest); }
+    .btn-ingest:hover:not(:disabled) { background: var(--btn-ingest); color: #fff; }
+    .btn-reprocess { background: transparent; color: var(--btn-reprocess); border: 1px solid var(--btn-reprocess); }
+    .btn-reprocess:hover:not(:disabled) { background: var(--btn-reprocess); color: #fff; }
 
     .file-preview-panel {
         background: var(--bg-code); border: 1px solid var(--border); border-top: none;
@@ -127,13 +127,13 @@
         transition: all 0.2s; min-width: 36px; text-align: center;
     }
     .pagination .page-btn:hover:not(.active):not(.disabled) { background: var(--border); color: var(--text); }
-    .pagination .page-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
+    .pagination .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
     .pagination .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
     .pagination .page-info { color: var(--text-secondary); font-size: 13px; margin: 0 12px; }
 
     .toast-container { position: fixed; top: 80px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
     .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-    .toast-success { background: #2e7d32; } .toast-error { background: #c62828; } .toast-info { background: #1565c0; }
+    .toast-success { background: var(--toast-success); } .toast-error { background: var(--toast-error); } .toast-info { background: var(--toast-info); }
     @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 
     .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 12px; display: none; }
@@ -197,7 +197,7 @@
     <div class="icon">📤</div>
     <div class="text">拖拽文件到此处，或 <strong id="fileInputBtn">点击选择文件</strong></div>
     <div class="hint">支持 .md, .txt, .json, .yaml, .yml, .py, .sh, .sql, .conf, .pdf, .doc, .docx, .xls, .xlsx 等格式（可多文件上传）</div>
-    <div class="hint" style="margin-top:4px;color:#f9a825">⚡ 上传后自动触发 LLM 处理 → Wiki 写入 → 向量同步</div>
+    <div class="hint" style="margin-top:4px;color:var(--processing-border)">⚡ 上传后自动触发 LLM 处理 → Wiki 写入 → 向量同步</div>
     <input type="file" id="fileInput" multiple accept=".md,.txt,.json,.yaml,.yml,.py,.sh,.sql,.conf,.cfg,.ini,.csv,.log,.xml,.html,.css,.js,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
     <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
 </div>
@@ -411,7 +411,7 @@ function renderFileList(data) {
                     ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
                 </button>`;
         } else if (f.error) {
-            statusHtml = `<span style="color:#ef9a9a">❌ 处理失败: ${escapeHtml(f.error)}</span>`;
+            statusHtml = `<span style="color:var(--error-text)">❌ 处理失败: ${escapeHtml(f.error)}</span>`;
             actionButtons = `
                 <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
@@ -429,7 +429,7 @@ function renderFileList(data) {
                     ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
                 </button>`;
         } else {
-            statusHtml = '<span style="color:#f9a825">⏳ 未处理</span>';
+            statusHtml = '<span style="color:var(--text-tertiary)">⏳ 未处理</span>';
             actionButtons = `
                 <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
@@ -513,8 +513,8 @@ async function togglePreview(filename) {
             } else {
                 bodyEl.innerHTML = `<pre class="preview-raw">${escapeHtml(data.content)}</pre>`;
             }
-        } else { bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${data.error}</div>`; }
-    } catch (err) { bodyEl.innerHTML = `<div style="color:#ef9a9a">读取失败: ${err}</div>`; }
+        } else { bodyEl.innerHTML = `<div style="color:var(--error-text)">读取失败: ${data.error}</div>`; }
+    } catch (err) { bodyEl.innerHTML = `<div style="color:var(--error-text)">读取失败: ${err}</div>`; }
 }
 function closePreview(filename) {
     const panel = document.getElementById(`preview-panel-${encodeURIComponent(filename)}`);
