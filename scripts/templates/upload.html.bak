@@ -18,38 +18,38 @@
         display: flex; gap: 12px; margin-bottom: 20px; align-items: center;
     }
     .source-search-bar .search-input {
-        flex: 1; padding: 10px 16px; background: var(--bg-card);
-        border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+        flex: 1; padding: 10px 16px; background: #1a1a2e;
+        border: 1px solid #2a2a4a; border-radius: 8px; color: #e0e0e0;
         font-size: 14px; outline: none;
     }
-    .source-search-bar .search-input:focus { border-color: var(--accent); }
+    .source-search-bar .search-input:focus { border-color: #4fc3f7; }
     .source-search-bar .search-btn {
-        padding: 10px 24px; background: var(--accent); color: var(--bg);
+        padding: 10px 24px; background: #4fc3f7; color: #0f0f1a;
         border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
         cursor: pointer; white-space: nowrap;
     }
-    .source-search-bar .search-btn:hover { background: var(--accent-hover); }
+    .source-search-bar .search-btn:hover { background: #29b6f6; }
     .source-search-bar .search-btn.clear-btn {
-        background: var(--text-muted); color: var(--text);
+        background: #555; color: #e0e0e0;
     }
-    .source-search-bar .search-btn.clear-btn:hover { background: var(--text-secondary); }
+    .source-search-bar .search-btn.clear-btn:hover { background: #666; }
 
     .file-list-header {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
     }
-    .file-list-header h2 { color: var(--success); margin: 0; }
-    .file-count { color: var(--text-secondary); font-size: 14px; }
+    .file-list-header h2 { color: #81c784; margin: 0; }
+    .file-count { color: #888; font-size: 14px; }
 
     .file-card {
-        background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px 8px 0 0;
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px 8px 0 0;
         padding: 16px 20px; margin-bottom: 0; display: flex; align-items: center; gap: 16px;
         transition: border-color 0.2s;
     }
     .file-card.processing { border-color: #f9a825; background: #1e1e34; }
     .file-icon { font-size: 28px; flex-shrink: 0; width: 40px; text-align: center; }
     .file-info { flex: 1; min-width: 0; }
-    .file-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-meta { display: flex; gap: 16px; margin-top: 4px; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+    .file-name { font-size: 15px; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { display: flex; gap: 16px; margin-top: 4px; font-size: 13px; color: #888; flex-wrap: wrap; }
     .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
     .btn {
@@ -83,76 +83,76 @@
     .btn-reprocess:hover:not(:disabled) { background: #7b1fa2; }
 
     .file-preview-panel {
-        background: var(--bg-code); border: 1px solid var(--border); border-top: none;
+        background: #16213e; border: 1px solid #2a2a4a; border-top: none;
         border-radius: 0 0 8px 8px; padding: 24px; margin-bottom: 12px;
         display: none; animation: slideDown 0.2s ease;
     }
     .file-preview-panel.active { display: block; }
     @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
     .file-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .file-preview-header h3 { color: var(--accent); margin: 0; }
-    .btn-close { background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer; }
-    .btn-close:hover { color: var(--text); }
-    .preview-raw { white-space: pre-wrap; font-family: 'Fira Code', Consolas, monospace; font-size: 13px; line-height: 1.6; color: var(--text); max-height: 600px; overflow: auto; }
-    .preview-md { max-height: 600px; overflow: auto; padding: 16px; background: var(--bg-card); border-radius: 8px; line-height: 1.8; }
-    .preview-md h1 { color: var(--accent); font-size: 24px; margin: 0 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .preview-md h2 { color: var(--success); font-size: 20px; margin: 20px 0 10px; }
+    .file-preview-header h3 { color: #4fc3f7; margin: 0; }
+    .btn-close { background: none; border: none; color: #888; font-size: 20px; cursor: pointer; }
+    .btn-close:hover { color: #e0e0e0; }
+    .preview-raw { white-space: pre-wrap; font-family: 'Fira Code', Consolas, monospace; font-size: 13px; line-height: 1.6; color: #ccc; max-height: 600px; overflow: auto; }
+    .preview-md { max-height: 600px; overflow: auto; padding: 16px; background: #1a1a2e; border-radius: 8px; line-height: 1.8; }
+    .preview-md h1 { color: #4fc3f7; font-size: 24px; margin: 0 0 12px; border-bottom: 1px solid #2a2a4a; padding-bottom: 8px; }
+    .preview-md h2 { color: #81c784; font-size: 20px; margin: 20px 0 10px; }
     .preview-md h3 { color: #ffd54f; font-size: 17px; margin: 16px 0 8px; }
-    .preview-md h4,.preview-md h5,.preview-md h6 { color: var(--text-tertiary); margin: 12px 0 6px; }
-    .preview-md p { margin: 8px 0; color: var(--text); }
-    .preview-md a { color: var(--accent); }
+    .preview-md h4,.preview-md h5,.preview-md h6 { color: #aaa; margin: 12px 0 6px; }
+    .preview-md p { margin: 8px 0; color: #ddd; }
+    .preview-md a { color: #4fc3f7; }
     .preview-md a:hover { text-decoration: underline; }
-    .preview-md code { background: var(--bg-code); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--text); }
-    .preview-md pre { background: var(--bg-code); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
-    .preview-md pre code { background: none; padding: 0; font-size: 13px; color: var(--text); }
-    .preview-md ul,.preview-md ol { padding-left: 24px; margin: 8px 0; color: var(--text); }
+    .preview-md code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #e6edf3; }
+    .preview-md pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+    .preview-md pre code { background: none; padding: 0; font-size: 13px; color: #c9d1d9; }
+    .preview-md ul,.preview-md ol { padding-left: 24px; margin: 8px 0; color: #ddd; }
     .preview-md li { margin: 4px 0; }
-    .preview-md blockquote { border-left: 3px solid var(--accent); padding-left: 16px; margin: 12px 0; color: var(--text-tertiary); }
+    .preview-md blockquote { border-left: 3px solid #4fc3f7; padding-left: 16px; margin: 12px 0; color: #aaa; }
     .preview-md table { border-collapse: collapse; margin: 12px 0; }
-    .preview-md th,.preview-md td { padding: 6px 12px; border: 1px solid var(--border); }
-    .preview-md th { background: var(--bg-card); color: var(--accent); }
-    .preview-md td { color: var(--text); }
-    .preview-md hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .preview-md th,.preview-md td { padding: 6px 12px; border: 1px solid #2a2a4a; }
+    .preview-md th { background: #1a1a2e; color: #4fc3f7; }
+    .preview-md td { color: #ddd; }
+    .preview-md hr { border: none; border-top: 1px solid #2a2a4a; margin: 16px 0; }
     .preview-md img { max-width: 100%; border-radius: 8px; }
-    .preview-md strong { color: var(--text); }
-    .preview-md em { color: var(--text-tertiary); }
+    .preview-md strong { color: #e0e0e0; }
+    .preview-md em { color: #aaa; }
 
     .pagination {
         display: flex; justify-content: center; align-items: center; gap: 8px;
         margin-top: 24px; padding: 16px 0;
     }
     .pagination .page-btn {
-        padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border);
-        border-radius: 6px; color: var(--text-tertiary); font-size: 13px; cursor: pointer;
+        padding: 8px 14px; background: #1a1a2e; border: 1px solid #2a2a4a;
+        border-radius: 6px; color: #aaa; font-size: 13px; cursor: pointer;
         transition: all 0.2s; min-width: 36px; text-align: center;
     }
-    .pagination .page-btn:hover:not(.active):not(.disabled) { background: var(--border); color: var(--text); }
+    .pagination .page-btn:hover:not(.active):not(.disabled) { background: #2a2a4a; color: #e0e0e0; }
     .pagination .page-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
     .pagination .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-    .pagination .page-info { color: var(--text-secondary); font-size: 13px; margin: 0 12px; }
+    .pagination .page-info { color: #888; font-size: 13px; margin: 0 12px; }
 
     .toast-container { position: fixed; top: 80px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
     .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
     .toast-success { background: #2e7d32; } .toast-error { background: #c62828; } .toast-info { background: #1565c0; }
     @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 
-    .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 12px; display: none; }
+    .progress-bar { width: 100%; height: 4px; background: #2a2a4a; border-radius: 2px; overflow: hidden; margin-top: 12px; display: none; }
     .progress-bar.active { display: block; }
-    .progress-bar .fill { height: 100%; background: var(--accent); transition: width 0.3s; width: 0%; }
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .progress-bar .fill { height: 100%; background: #4fc3f7; transition: width 0.3s; width: 0%; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #666; }
     .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
 
     .refresh-indicator {
         position: fixed; bottom: 20px; right: 20px; z-index: 1000;
-        background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-        padding: 8px 16px; font-size: 13px; color: var(--accent);
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px;
+        padding: 8px 16px; font-size: 13px; color: #4fc3f7;
         display: none; align-items: center; gap: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .refresh-indicator.active { display: flex; }
     .refresh-spinner {
-        width: 14px; height: 14px; border: 2px solid var(--border);
-        border-top-color: var(--accent); border-radius: 50%;
+        width: 14px; height: 14px; border: 2px solid #2a2a4a;
+        border-top-color: #4fc3f7; border-radius: 50%;
         animation: spin 0.8s linear infinite;
     }
 
@@ -165,23 +165,23 @@
     }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
     .modal-box {
-        background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px;
         padding: 32px; max-width: 480px; width: 90%;
         box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         animation: slideUp 0.2s ease;
     }
     @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     .modal-icon { font-size: 40px; text-align: center; margin-bottom: 16px; }
-    .modal-title { color: var(--accent); font-size: 18px; font-weight: 600; text-align: center; margin: 0 0 12px; }
-    .modal-message { color: var(--text); font-size: 14px; text-align: center; line-height: 1.6; margin: 0 0 24px; white-space: pre-line; }
+    .modal-title { color: #4fc3f7; font-size: 18px; font-weight: 600; text-align: center; margin: 0 0 12px; }
+    .modal-message { color: #ccc; font-size: 14px; text-align: center; line-height: 1.6; margin: 0 0 24px; white-space: pre-line; }
     .modal-buttons { display: flex; gap: 12px; justify-content: center; }
     .modal-btn {
         padding: 10px 28px; border: none; border-radius: 8px;
         font-size: 14px; font-weight: 600; cursor: pointer;
         transition: background 0.2s;
     }
-    .modal-btn-cancel { background: var(--text); color: var(--text); }
-    .modal-btn-cancel:hover { background: var(--text-tertiary); }
+    .modal-btn-cancel { background: #333; color: #ccc; }
+    .modal-btn-cancel:hover { background: #444; }
     .modal-btn-confirm { background: #c62828; color: #fff; }
     .modal-btn-confirm:hover { background: #d32f2f; }
 </style>
@@ -207,7 +207,7 @@
     <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名或内容..." onkeydown="if(event.key==='Enter')doSearch()">
     <button class="search-btn" onclick="doSearch()">🔍 搜索</button>
     <button class="search-btn clear-btn" onclick="clearSearch()">✕ 清除</button>
-    <select id="perPageSelect" onchange="changePerPage()" style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text-tertiary);font-size:13px;cursor:pointer;">
+    <select id="perPageSelect" onchange="changePerPage()" style="padding:8px 12px;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:6px;color:#aaa;font-size:13px;cursor:pointer;">
         <option value="5">5条/页</option>
         <option value="10" selected>10条/页</option>
         <option value="20">20条/页</option>
@@ -402,7 +402,7 @@ function renderFileList(data) {
 
         if (f.processing) {
             // ── 处理中：保留所有按钮，但置灰不可点 ──
-            statusHtml = `<span style="color:var(--accent)">⚙️ 处理中: ${escapeHtml(f.processing_message || '处理中...')}</span>`;
+            statusHtml = `<span style="color:#4fc3f7">⚙️ 处理中: ${escapeHtml(f.processing_message || '处理中...')}</span>`;
             actionButtons = `
                 <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}
@@ -420,7 +420,7 @@ function renderFileList(data) {
                     ${isDeleting ? '<span class="btn-spinner"></span> 删除中' : '🗑 删除'}
                 </button>`;
         } else if (f.ingested) {
-            statusHtml = '<span style="color:var(--success)">✅ 已向量化并同步索引</span>';
+            statusHtml = '<span style="color:#81c784">✅ 已向量化并同步索引</span>';
             actionButtons = `
                 <button class="btn btn-view" onclick="togglePreview('${jsName}')">👁 预览</button>
                 ${downloadBtn}

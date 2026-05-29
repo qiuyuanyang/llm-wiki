@@ -33,9 +33,9 @@
         <p style="margin-bottom: 8px;"><strong style="color: #81c784;">原因：</strong>{{ d.cause }}</p>
         {% endif %}
         {% if d.solution %}
-        <p style="margin-bottom: 8px;"><strong style="color: #ffd54f;">解决方案：</strong>{{ d.solution[:300] }}{% if d.solution|length > 300 %}...{% endif %}</p>
+        <p style="margin-bottom: 8px;"><strong style="color: var(--h3-color);">解决方案：</strong>{{ d.solution[:300] }}{% if d.solution|length > 300 %}...{% endif %}</p>
         {% endif %}
-        <p style="color: #888; font-size: 13px;">
+        <p style="color: var(--text-secondary); font-size: 13px;">
             来源: {{ d.source_file or d.source_page or '-' }} |
             状态: {{ d.status }} |
             更新: {{ d.updated_at[:10] if d.updated_at else '-' }}
@@ -43,7 +43,7 @@
     </div>
     {% endfor %}
 {% else %}
-    <p style="color: #888;">暂无诊断数据。运行 <code>./wiki.sh diagnose scan</code> 扫描文档。</p>
+    <p style="color: var(--text-secondary);">暂无诊断数据。运行 <code>./wiki.sh diagnose scan</code> 扫描文档。</p>
 {% endif %}
 </div>
 {% endblock %}
@@ -63,17 +63,17 @@ function searchDiagnoses() {
     .then(data => {
         let html = '';
         if (data.length === 0) {
-            html = '<p style="color: #888;">未找到相关诊断。</p>';
+            html = '<p style="color: var(--text-secondary);">未找到相关诊断。</p>';
         } else {
             data.forEach(d => {
                 html += `<div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                        <h3 style="color: #4fc3f7;">${d.symptom}</h3>
+                        <h3 style="color: var(--accent);">${d.symptom}</h3>
                         <span class="badge badge-${d.severity}">${d.severity.toUpperCase()}</span>
                     </div>
-                    ${d.cause ? `<p style="margin-bottom: 8px;"><strong style="color: #81c784;">原因：</strong>${d.cause}</p>` : ''}
-                    ${d.solution ? `<p style="margin-bottom: 8px;"><strong style="color: #ffd54f;">解决方案：</strong>${d.solution.substring(0, 300)}${d.solution.length > 300 ? '...' : ''}</p>` : ''}
-                    <p style="color: #888; font-size: 13px;">
+                    ${d.cause ? `<p style="margin-bottom: 8px;"><strong style="color: var(--success);">原因：</strong>${d.cause}</p>` : ''}
+                    ${d.solution ? `<p style="margin-bottom: 8px;"><strong style="color: var(--h3-color);">解决方案：</strong>${d.solution.substring(0, 300)}${d.solution.length > 300 ? '...' : ''}</p>` : ''}
+                    <p style="color: var(--text-secondary); font-size: 13px;">
                         来源: ${d.source_file || d.source_page || '-'} |
                         状态: ${d.status} |
                         更新: ${(d.updated_at || '').substring(0, 10)}

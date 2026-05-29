@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% block title %}拓扑图 - LLM Wiki{% endblock %}
 {% block content %}
-<h1 style="color: #4fc3f7; margin-bottom: 24px;">📊 基础设施拓扑图</h1>
+<h1 style="color: var(--accent); margin-bottom: 24px;">📊 基础设施拓扑图</h1>
 
-<p style="color: #888; margin-bottom: 24px;">
+<p style="color: var(--text-secondary); margin-bottom: 24px;">
     滚轮缩放 · 拖拽平移 · 拖拽节点调整位置
 </p>
 
-<div style="border: 1px solid #2a2a4a; border-radius: 8px; overflow: hidden;">
+<div style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
     <iframe src="/topology.html" style="width: 100%; height: 80vh; border: none;"></iframe>
 </div>
 
-<p style="color: #555; font-size: 13px; margin-top: 12px;">
-    如果拓扑图为空，运行 <code style="background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">./wiki.sh graph</code> 生成拓扑图。
+<p style="color: var(--text-muted); font-size: 13px; margin-top: 12px;">
+    如果拓扑图为空，运行 <code style="background: var(--bg-code); padding: 2px 6px; border-radius: 4px;">./wiki.sh graph</code> 生成拓扑图。
 </p>
 {% endblock %}

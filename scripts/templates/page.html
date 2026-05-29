@@ -2,7 +2,7 @@
 {% block title %}{{ name }} - LLM Wiki{% endblock %}
 {% block content %}
 <div style="margin-bottom: 16px;">
-    <a href="javascript:void(0)" onclick="goBack()" style="color: #4fc3f7; text-decoration: none;">← 返回上一页</a>
+    <a href="javascript:void(0)" onclick="goBack()" style="color: var(--accent); text-decoration: none;">← 返回上一页</a>
     <script>
     function goBack() {
         if (document.referrer && document.referrer.startsWith(window.location.origin)) {
@@ -16,16 +16,16 @@
     </script>
 </div>
 
-<h1 style="color: #4fc3f7; margin-bottom: 8px;">{{ name }}</h1>
-<p style="color: #888; margin-bottom: 24px;">{{ path }} | 类型: {{ type }}</p>
+<h1 style="color: var(--accent); margin-bottom: 8px;">{{ name }}</h1>
+<p style="color: var(--text-secondary); margin-bottom: 24px;">{{ path }} | 类型: {{ type }}</p>
 
 {% if frontmatter %}
 <div class="card" style="margin-bottom: 24px;">
-    <h3 style="color: #81c784; margin-bottom: 12px;">📋 元数据</h3>
+    <h3 style="color: var(--success); margin-bottom: 12px;">📋 元数据</h3>
     <table>
         {% for key, value in frontmatter.items() %}
         <tr>
-            <td style="color: #888; width: 150px;">{{ key }}</td>
+            <td style="color: var(--text-secondary); width: 150px;">{{ key }}</td>
             <td>{{ value }}</td>
         </tr>
         {% endfor %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}搜索 - LLM Wiki{% endblock %}
 {% block content %}
-<h1 style="color: #4fc3f7; margin-bottom: 24px;">🔍 语义搜索</h1>
+<h1 style="color: var(--accent); margin-bottom: 24px;">🔍 语义搜索</h1>
 
 {% set type_map = {
     'infrastructure': '基础设施',
@@ -19,16 +19,16 @@
         <input type="text" id="searchInput" name="q" value="{{ query }}" placeholder="输入关键词，使用语义搜索..." autofocus>
         <button type="submit" id="searchBtn">🔍 搜索</button>
     </form>
-    <div id="loadingIndicator" style="display:none; text-align:center; padding:32px; color:#4fc3f7;">
+    <div id="loadingIndicator" style="display:none; text-align:center; padding:32px; color:var(--accent);">
         <div class="search-spinner"></div>
         <span style="margin-left:12px">正在搜索...</span>
     </div>
     <div id="resultsContainer">
         {% if query and results is defined %}
         <div id="resultsArea">
-            <h2 style="color: #81c784; margin: 16px 0;">搜索结果: "{{ query }}"</h2>
+            <h2 style="color: var(--success); margin: 16px 0;">搜索结果: "{{ query }}"</h2>
             {% if results %}
-            <p style="color:#888; font-size:13px;">找到 {{ results|length }} 条结果</p>
+            <p style="color:var(--text-secondary); font-size:13px;">找到 {{ results|length }} 条结果</p>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -37,7 +37,7 @@
                     <tbody>
                         {% for r in results %}
                         <tr>
-                            <td><a href="/page/{{ r.page_path }}" style="color: #4fc3f7; text-decoration: none;">{{ r.title }}</a></td>
+                            <td><a href="/page/{{ r.page_path }}" style="color: var(--accent); text-decoration: none;">{{ r.title }}</a></td>
                             <td><span class="badge badge-{{ r.page_type }}">{{ type_map.get(r.page_type, r.page_type) }}</span></td>
                             <td>{{ "%.4f"|format(r.score) }}</td>
                         </tr>
@@ -46,7 +46,7 @@
                 </table>
             </div>
             {% else %}
-            <p style="color: #888;">未找到相关结果。</p>
+            <p style="color: var(--text-secondary);">未找到相关结果。</p>
             {% endif %}
         </div>
         {% endif %}
@@ -56,29 +56,27 @@
 <style>
 #searchForm { display: flex; gap: 12px; margin-bottom: 24px; }
 #searchInput {
-    flex: 1; padding: 12px 16px; background: #1a1a2e;
-    border: 1px solid #2a2a4a; border-radius: 8px; color: #e0e0e0;
-    font-size: 15px; outline: none;
+    flex: 1; padding: 12px 16px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 15px; outline: none; transition: background 0.3s, border-color 0.3s;
 }
-#searchInput:focus { border-color: #4fc3f7; }
+#searchInput:focus { border-color: var(--accent); }
 #searchBtn {
-    padding: 12px 28px; background: #4fc3f7; color: #0f0f1a;
+    padding: 12px 28px; background: var(--accent); color: var(--bg);
     border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
     cursor: pointer; white-space: nowrap; transition: background 0.2s;
 }
-#searchBtn:hover { background: #29b6f6; }
+#searchBtn:hover { background: var(--accent-hover); }
 #searchBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 .search-spinner {
     display: inline-block; width: 20px; height: 20px;
-    border: 3px solid #2a2a4a; border-top-color: #4fc3f7;
+    border: 3px solid var(--border); border-top-color: var(--accent);
     border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* Results area styles (for AJAX-rendered results) */
-#resultsArea h2 { color: #81c784; margin: 16px 0 8px; }
-#resultsArea .result-count { color: #888; font-size: 13px; margin-bottom: 12px; }
-#resultsArea .no-results { color: #888; font-size: 15px; padding: 16px 0; }
+#resultsArea h2 { color: var(--success); margin: 16px 0 8px; }
+#resultsArea .result-count { color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+#resultsArea .no-results { color: var(--text-secondary); font-size: 15px; padding: 16px 0; }
 </style>
 
 <script>
@@ -115,7 +113,7 @@ document.getElementById('searchForm').addEventListener('submit', async function(
         // Render results
         const resultsDiv = document.createElement('div');
         resultsDiv.id = 'resultsArea';
-        resultsDiv.innerHTML = `<h2 style="color: #81c784; margin: 16px 0 8px;">搜索结果: "${escapeHtml(query)}"</h2>`;
+        resultsDiv.innerHTML = `<h2 style="color: var(--success); margin: 16px 0 8px;">搜索结果: "${escapeHtml(query)}"</h2>`;
 
         if (data.error) {
             resultsDiv.innerHTML += `<p style="color:#ef9a9a;">搜索出错: ${escapeHtml(data.error)}</p>`;
@@ -126,7 +124,7 @@ document.getElementById('searchForm').addEventListener('submit', async function(
             let tableHtml = '<div class="table-wrap"><table><thead><tr><th>名称</th><th>类型</th><th>相关度</th></tr></thead><tbody>';
             for (const r of data) {
                 tableHtml += `<tr>
-                    <td><a href="/page/${encodeURIComponent(r.page_path)}" style="color: #4fc3f7; text-decoration: none;">${escapeHtml(r.title)}</a></td>
+                    <td><a href="/page/${encodeURIComponent(r.page_path)}" style="color: var(--accent); text-decoration: none;">${escapeHtml(r.title)}</a></td>
                     <td><span class="badge badge-${r.page_type}">${typeLabel(r.page_type)}</span></td>
                     <td>${r.score.toFixed(4)}</td>
                 </tr>`;
