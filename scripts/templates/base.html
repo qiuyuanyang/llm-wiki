@@ -254,13 +254,15 @@
     </aside>
 
     <div class="main-wrapper">
-        <div class="main-content">
+        <div class="main-content" {% block main_attrs %}{% endblock %}>
             {% block content %}{% endblock %}
         </div>
 
+        {% block footer %}
         <div class="footer">
             LLM Wiki — 基础设施知识库
         </div>
+        {% endblock %}
     </div>
 
     <!-- Markdown rendering -->
