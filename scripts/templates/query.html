@@ -2,10 +2,37 @@
 {% block title %}智能问答 - LLM Wiki{% endblock %}
 {% block content %}
 <style>
-.query-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.btn-new-chat { background: var(--border); color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
-.btn-new-chat:hover { background: var(--accent); color: var(--bg); }
-.chat-container { display: flex; flex-direction: column; gap: 16px; max-height: 60vh; overflow-y: auto; padding: 8px 0; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+.query-layout { display: flex; gap: 0; height: calc(100vh - 160px); min-height: 500px; }
+/* Sidebar */
+.sidebar { width: 240px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; transition: width 0.25s ease; }
+.sidebar.collapsed { width: 0; border: none; margin-right: 0; padding: 0; }
+.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-header h3 { margin: 0; font-size: 14px; color: var(--text-secondary); }
+.btn-new-chat { background: var(--accent); color: var(--bg); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s; white-space: nowrap; }
+.btn-new-chat:hover { background: var(--accent-hover); }
+.conv-list { flex: 1; overflow-y: auto; padding: 6px; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+.conv-list::-webkit-scrollbar { width: 4px; }
+.conv-list::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+.conv-list::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+.conv-item { display: flex; align-items: center; padding: 10px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; transition: background 0.15s; gap: 8px; }
+.conv-item:hover { background: var(--border); }
+.conv-item.active { background: var(--accent); color: var(--bg); }
+.conv-item.active .conv-time { color: var(--bg); opacity: 0.7; }
+.conv-item-info { flex: 1; min-width: 0; }
+.conv-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.conv-delete { opacity: 0; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; transition: opacity 0.15s, color 0.15s; }
+.conv-item:hover .conv-delete { opacity: 1; }
+.conv-delete:hover { color: #e74c3c; }
+.conv-item.active .conv-delete:hover { color: #fff; }
+.conv-empty { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 30px 14px; }
+/* Main area */
+.chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; margin-left: 12px; }
+.chat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.chat-header h1 { color: var(--accent); margin: 0; font-size: 20px; }
+.btn-toggle-sidebar { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; }
+.btn-toggle-sidebar:hover { border-color: var(--accent); color: var(--accent); }
+.chat-container { display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; padding: 8px 0; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
 .chat-container::-webkit-scrollbar { width: 6px; }
 .chat-container::-webkit-scrollbar-track { background: var(--scrollbar-track); }
 .chat-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
@@ -41,7 +68,7 @@
 .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes typing { 0%,60%,100%{opacity:0.3;transform:scale(0.8)} 30%{opacity:1;transform:scale(1)} }
-.input-area { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.input-area { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .input-wrapper { display: flex; gap: 10px; align-items: flex-end; }
 .input-wrapper textarea { flex: 1; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 14px; resize: none; outline: none; line-height: 1.5; max-height: 120px; overflow-y: auto; }
 .input-wrapper textarea:focus { border-color: var(--accent); }
@@ -50,17 +77,33 @@
 .input-wrapper button:disabled { opacity: 0.5; cursor: not-allowed; }
 .source-link { color: var(--accent); text-decoration: none; font-size: 12px; background: var(--bg-card); padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0; display: inline-block; border: 1px solid var(--border); }
 .source-link:hover { background: var(--border); }
+/* Mobile */
+@media (max-width: 768px) {
+    .sidebar { position: absolute; z-index: 100; height: calc(100vh - 160px); }
+    .sidebar.collapsed { width: 0; }
+    .chat-main { margin-left: 0; }
+}
 </style>
 
-<div class="query-header">
-    <h1 style="color:var(--accent);margin:0;">🤖 智能问答</h1>
-    <button onclick="newConversation()" class="btn-new-chat">✚ 新对话</button>
-</div>
-
-<div class="chat-container" id="chatContainer">
-    <div class="message assistant-msg" id="welcomeMsg">
-        <div class="avatar">🤖</div>
-        <div class="msg-content"><div class="msg-bubble">
+<div class="query-layout">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>📋 对话历史</h3>
+            <button onclick="newConversation()" class="btn-new-chat">✚ 新对话</button>
+        </div>
+        <div class="conv-list" id="convList">
+            <div class="conv-empty" id="convEmpty">暂无对话记录</div>
+        </div>
+    </div>
+    <div class="chat-main">
+        <div class="chat-header">
+            <h1>🤖 智能问答</h1>
+            <button onclick="toggleSidebar()" class="btn-toggle-sidebar" title="切换侧边栏">☰</button>
+        </div>
+        <div class="chat-container" id="chatContainer">
+            <div class="message assistant-msg" id="welcomeMsg">
+                <div class="avatar">🤖</div>
+                <div class="msg-content"><div class="msg-bubble">
 你好！我是 LLM Wiki 智能问答助手，可以帮你查询基础设施和 IT 运维知识库。
 <br><br>
 试试问我：<br>
@@ -69,56 +112,257 @@
 • 最近的网络拓扑和防火墙规则？<br>
 • 容灾演练做了什么变更？
 </div></div>
-    </div>
-</div>
-
-<div class="input-area">
-    <div class="input-wrapper">
-        <textarea id="questionInput" placeholder="输入你的问题... (Ctrl+Enter 发送)" rows="1"></textarea>
-        <button onclick="submitQuestion()" id="sendBtn">发送</button>
-    </div>
-    <div id="sourcesContainer" style="display:none;margin-top:8px;">
-        <span style="color:var(--text-secondary);font-size:12px;">📚 参考来源：</span>
-        <span id="sourcesList"></span>
+            </div>
+        </div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="questionInput" placeholder="输入你的问题... (Ctrl+Enter 发送)" rows="1"></textarea>
+                <button onclick="submitQuestion()" id="sendBtn">发送</button>
+            </div>
+            <div id="sourcesContainer" style="display:none;margin-top:8px;">
+                <span style="color:var(--text-secondary);font-size:12px;">📚 参考来源：</span>
+                <span id="sourcesList"></span>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-var conversationId = 'conv_' + Date.now();
+// ── Storage keys ──────────────────────────────────────────────────────────────
+var STORAGE_LIST_KEY = 'wiki_qa_list';      // [{id, title, updated}]
+var STORAGE_PREFIX = 'wiki_qa_';            // wiki_qa_<id> -> {history: [...]}
+var CONV_EXPIRE_DAYS = 5;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var currentConvId = null;
 var convHistory = [];
 var isStreaming = false;
 var nextTurnId = 0;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function escapeHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(new RegExp(String.fromCharCode(34),'g'),'&quot;');
 }
 
-function loadConversation() {
+function getConvList() {
     try {
-        var saved = localStorage.getItem('wiki_qa_' + conversationId);
+        var list = JSON.parse(localStorage.getItem(STORAGE_LIST_KEY) || '[]');
+        return Array.isArray(list) ? list : [];
+    } catch(e) { return []; }
+}
+
+function saveConvList(list) {
+    try { localStorage.setItem(STORAGE_LIST_KEY, JSON.stringify(list)); } catch(e) {}
+}
+
+function cleanupExpiredConversations() {
+    var list = getConvList();
+    var now = Date.now();
+    var expireMs = CONV_EXPIRE_DAYS * 24 * 60 * 60 * 1000;
+    var newList = [];
+    var changed = false;
+    for (var i = 0; i < list.length; i++) {
+        var conv = list[i];
+        if (now - conv.updated > expireMs) {
+            // Expired - remove
+            try { localStorage.removeItem(STORAGE_PREFIX + conv.id); } catch(e) {}
+            changed = true;
+        } else {
+            newList.push(conv);
+        }
+    }
+    if (changed) saveConvList(newList);
+    return newList;
+}
+
+function renderConvList() {
+    var list = getConvList();
+    var container = document.getElementById('convList');
+    var emptyEl = document.getElementById('convEmpty');
+    
+    // Remove all conv-items (keep emptyEl)
+    var items = container.querySelectorAll('.conv-item');
+    for (var i = 0; i < items.length; i++) items[i].remove();
+    
+    if (list.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+    }
+    
+    emptyEl.style.display = 'none';
+    
+    // Sort by updated descending
+    list.sort(function(a, b) { return b.updated - a.updated; });
+    
+    for (var i = 0; i < list.length; i++) {
+        var conv = list[i];
+        var item = document.createElement('div');
+        item.className = 'conv-item' + (conv.id === currentConvId ? ' active' : '');
+        item.setAttribute('data-id', conv.id);
+        
+        var info = document.createElement('div');
+        info.className = 'conv-item-info';
+        
+        var title = document.createElement('div');
+        title.className = 'conv-title';
+        title.textContent = conv.title || '新对话';
+        
+        var time = document.createElement('div');
+        time.className = 'conv-time';
+        time.textContent = formatTime(conv.updated);
+        
+        info.appendChild(title);
+        info.appendChild(time);
+        
+        var del = document.createElement('button');
+        del.className = 'conv-delete';
+        del.innerHTML = '✕';
+        del.title = '删除对话';
+        del.addEventListener('click', (function(id) {
+            return function(e) {
+                e.stopPropagation();
+                deleteConversation(id);
+            };
+        })(conv.id));
+        
+        item.appendChild(info);
+        item.appendChild(del);
+        
+        item.onclick = (function(id) {
+            return function() { switchConversation(id); };
+        })(conv.id);
+        
+        container.appendChild(item);
+    }
+}
+
+function formatTime(ts) {
+    var d = new Date(ts);
+    var now = new Date();
+    var diffMs = now - d;
+    var diffMin = Math.floor(diffMs / 60000);
+    var diffHour = Math.floor(diffMs / 3600000);
+    var diffDay = Math.floor(diffMs / 86400000);
+    
+    if (diffMin < 1) return '刚刚';
+    if (diffMin < 60) return diffMin + '分钟前';
+    if (diffHour < 24) return diffHour + '小时前';
+    if (diffDay < 7) return diffDay + '天前';
+    return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function updateConvInList(convId, title) {
+    var list = getConvList();
+    var found = false;
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].id === convId) {
+            list[i].updated = Date.now();
+            if (title) list[i].title = title;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        list.push({ id: convId, title: title || '新对话', updated: Date.now() });
+    }
+    saveConvList(list);
+    renderConvList();
+}
+
+function deleteConversation(convId) {
+    if (!confirm('确定删除这个对话吗？')) return;
+    
+    // Remove from list
+    var list = getConvList();
+    list = list.filter(function(c) { return c.id !== convId; });
+    saveConvList(list);
+    
+    // Remove data
+    try { localStorage.removeItem(STORAGE_PREFIX + convId); } catch(e) {}
+    
+    // If deleted current, start new
+    if (convId === currentConvId) {
+        newConversation();
+    } else {
+        renderConvList();
+    }
+}
+
+function switchConversation(convId) {
+    if (convId === currentConvId) return;
+    if (isStreaming) {
+        alert('请等待当前回复完成');
+        return;
+    }
+    
+    currentConvId = convId;
+    loadConversationData(convId);
+    renderConvList();
+}
+
+function loadConversationData(convId) {
+    var container = document.getElementById('chatContainer');
+    container.innerHTML = '';
+    convHistory = [];
+    document.getElementById('sourcesContainer').style.display = 'none';
+    
+    try {
+        var saved = localStorage.getItem(STORAGE_PREFIX + convId);
         if (saved) {
-            convHistory = JSON.parse(saved).history || [];
-            var w = document.getElementById('welcomeMsg');
-            if (w) w.parentNode.removeChild(w);
+            var data = JSON.parse(saved);
+            convHistory = data.history || [];
             for (var i = 0; i < convHistory.length; i++) {
                 addBubble(convHistory[i].role, convHistory[i].content, false);
             }
         }
     } catch(e) {}
+    
+    if (convHistory.length === 0) {
+        // Show welcome
+        container.innerHTML = '<div class="message assistant-msg" id="welcomeMsg"><div class="avatar">🤖</div><div class="msg-content"><div class="msg-bubble">你好！我是 LLM Wiki 智能问答助手，可以帮你查询基础设施和 IT 运维知识库。<br><br>试试问我：<br>• 某台服务器的 IP 和配置？<br>• 数据库主从复制如何设置？<br>• 最近的网络拓扑和防火墙规则？<br>• 容灾演练做了什么变更？</div></div></div>';
+    }
+    
+    container.scrollTop = container.scrollHeight;
+}
+
+function toggleSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+}
+
+// ── Legacy compat ─────────────────────────────────────────────────────────────
+function loadConversation() {
+    // Called on init - load most recent or start new
+    cleanupExpiredConversations();
+    var list = getConvList();
+    if (list.length > 0) {
+        list.sort(function(a, b) { return b.updated - a.updated; });
+        switchConversation(list[0].id);
+    } else {
+        newConversation();
+    }
 }
 
 function saveConversation() {
-    try { localStorage.setItem('wiki_qa_' + conversationId, JSON.stringify({history: convHistory})); } catch(e) {}
+    if (!currentConvId) return;
+    try {
+        localStorage.setItem(STORAGE_PREFIX + currentConvId, JSON.stringify({history: convHistory}));
+    } catch(e) {}
 }
 
 function newConversation() {
-    conversationId = 'conv_' + Date.now();
+    if (isStreaming) {
+        alert('请等待当前回复完成');
+        return;
+    }
+    currentConvId = 'conv_' + Date.now();
     convHistory = [];
-    localStorage.removeItem('wiki_qa_' + conversationId);
-    document.getElementById('chatContainer').innerHTML = '<div class="message assistant-msg" id="welcomeMsg"><div class="avatar">\uD83E\uDD16</div><div class="msg-content"><div class="msg-bubble">\u4F60\u597D\uFF01\u6211\u662F LLM Wiki \u667A\u80FD\u95EE\u7B54\u52A9\u624B\uFF0C\u53EF\u4EE5\u5E2E\u4F60\u67E5\u8BE2\u57FA\u7840\u8BBE\u65BD\u548C IT \u8FD0\u7EF4\u77E5\u8BC6\u5E93\u3002<br><br>\u8BD5\u8BD5\u95EE\u6211\uFF1A<br>\u2022 \u67D0\u53F0\u670D\u52A1\u5668\u7684 IP \u548C\u914D\u7F6E\uFF1F<br>\u2022 \u6570\u636E\u5E93\u4E3B\u4ECE\u590D\u5236\u5982\u4F55\u8BBE\u7F6E\uFF1F<br>\u2022 \u6700\u8FD1\u7684\u7F51\u7EDC\u62D3\u6251\u548C\u9632\u706B\u5899\u89C4\u5219\uFF1F<br>\u2022 \u5BB9\u707E\u6F14\u7EC3\u505A\u4E86\u4EC0\u4E48\u53D8\u66F4\uFF1F</div></div></div>';
+    var container = document.getElementById('chatContainer');
+    container.innerHTML = '<div class="message assistant-msg" id="welcomeMsg"><div class="avatar">\uD83E\uDD16</div><div class="msg-content"><div class="msg-bubble">\u4F60\u597D\uFF01\u6211\u662F LLM Wiki \u667A\u80FD\u95EE\u7B54\u52A9\u624B\uFF0C\u53EF\u4EE5\u5E2E\u4F60\u67E5\u8BE2\u57FA\u7840\u8BBE\u65BD\u548C IT \u8FD0\u7EF4\u77E5\u8BC6\u5E93\u3002<br><br>\u8BD5\u8BD5\u95EE\u6211\uFF1A<br>\u2022 \u67D0\u53F0\u670D\u52A1\u5668\u7684 IP \u548C\u914D\u7F6E\uFF1F<br>\u2022 \u6570\u636E\u5E93\u4E3B\u4ECE\u590D\u5236\u5982\u4F55\u8BBE\u7F6E\uFF1F<br>\u2022 \u6700\u8FD1\u7684\u7F51\u7EDC\u62D3\u6251\u548C\u9632\u706B\u5899\u89C4\u5219\uFF1F<br>\u2022 \u5BB9\u707E\u6F14\u7EC3\u505A\u4E86\u4EC0\u4E48\u53D8\u66F4\uFF1F</div></div></div>';
     document.getElementById('sourcesContainer').style.display = 'none';
+    renderConvList();
 }
 
 function addBubble(role, content, doScroll) {
@@ -159,6 +403,13 @@ function submitQuestion() {
 
     addBubble('user', question);
     convHistory.push({ role: 'user', content: question });
+    
+    // If first message, add to list with title from question
+    if (convHistory.length === 1) {
+        var title = question.length > 20 ? question.substring(0, 20) + '...' : question;
+        updateConvInList(currentConvId, title);
+    }
+    
     saveConversation();
     input.value = '';
     input.style.height = 'auto';
@@ -228,6 +479,8 @@ function doStream(question) {
                     if (fullText) {
                         convHistory.push({ role: 'assistant', content: fullText });
                         saveConversation();
+                        // Update list timestamp
+                        updateConvInList(currentConvId);
                     }
                     isStreaming = false;
                     document.getElementById('sendBtn').disabled = false;
