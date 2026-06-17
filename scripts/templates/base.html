@@ -72,23 +72,52 @@
         ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
         ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
         .header {
-            background: linear-gradient(135deg, var(--bg-header-start) 0%, var(--bg-header-end) 100%);
-            border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; z-index: 100;
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: 220px;
+            background: linear-gradient(180deg, var(--bg-header-start) 0%, var(--bg-header-end) 100%);
+            border-right: 1px solid var(--border);
+            z-index: 100; display: flex; flex-direction: column;
+            transition: background 0.3s, border-color 0.3s;
+            overflow-y: auto;
         }
-        .header .container { display: flex; align-items: center; justify-content: space-between; }
-        .header-left { display: flex; align-items: center; gap: 24px; }
-        .logo { font-size: 20px; font-weight: 700; color: var(--accent); text-decoration: none; }
+        .sidebar-header {
+            padding: 24px 16px 16px; border-bottom: 1px solid var(--border);
+        }
+        .logo { font-size: 20px; font-weight: 700; color: var(--accent); text-decoration: none; display: block; }
         .logo span { color: var(--success); }
-        .nav { display: flex; gap: 24px; }
-        .nav a { color: var(--text-tertiary); text-decoration: none; font-size: 14px; transition: color 0.2s; }
-        .nav a:hover, .nav a.active { color: var(--accent); }
+        .sidebar-nav {
+            flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 4px;
+        }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 8px;
+            color: var(--text-tertiary); text-decoration: none;
+            font-size: 14px; transition: all 0.2s;
+        }
+        .sidebar-nav a:hover { background: var(--bg-card); color: var(--text); }
+        .sidebar-nav a.active { background: var(--accent); color: #fff; font-weight: 600; }
+        .sidebar-footer {
+            padding: 16px; border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+        }
         .theme-toggle {
             background: var(--toggle-bg); border: none; border-radius: 50%;
-            width: 36px; height: 36px; cursor: pointer; font-size: 18px;
+            width: 40px; height: 40px; cursor: pointer; font-size: 20px;
             display: flex; align-items: center; justify-content: center;
             transition: background 0.2s, transform 0.2s;
         }
         .theme-toggle:hover { transform: scale(1.1); }
+
+        .main-wrapper {
+            margin-left: 220px; min-height: 100vh; display: flex; flex-direction: column;
+        }
+        .main-content {
+            flex: 1; padding: 24px 32px 40px;
+        }
+        .footer {
+            text-align: center; padding: 20px 32px; color: var(--text-muted); font-size: 13px;
+            border-top: 1px solid var(--border);
+        }
         .card {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
             padding: 20px; margin-bottom: 16px; transition: background 0.3s, border-color 0.3s;
@@ -195,37 +224,43 @@
             border-top: 1px solid var(--border); margin-top: 40px;
         }
         @media (max-width: 768px) {
-            .header .container { flex-wrap: wrap; gap: 8px; }
-            .header-left { gap: 12px; }
-            .nav { gap: 12px; flex-wrap: wrap; }
+            .header { width: 100%; height: auto; position: sticky; bottom: auto; flex-direction: row; border-right: none; border-bottom: 1px solid var(--border); }
+            .sidebar-header { border-bottom: none; padding: 12px 16px; }
+            .sidebar-nav { flex-direction: row; flex: none; gap: 0; padding: 0 8px 12px; overflow-x: auto; }
+            .sidebar-nav a { padding: 8px 10px; white-space: nowrap; font-size: 13px; }
+            .sidebar-footer { padding: 12px; }
+            .main-wrapper { margin-left: 0; }
+            .main-content { padding: 16px; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <div class="header-left">
-                <a href="/" class="logo">📚 LLM <span>Wiki</span></a>
-                <nav class="nav">
-                    <a href="/" {% if request.path == '/' %}class="active"{% endif %}>首页</a>
-                    <a href="/search" {% if request.path == '/search' %}class="active"{% endif %}>搜索</a>
-                    <a href="/query" {% if request.path == '/query' %}class="active"{% endif %}>智能问答</a>
-                    <a href="/diagnoses" {% if request.path == '/diagnoses' %}class="active"{% endif %}>故障诊断</a>
-                    <a href="/topology" {% if request.path == '/topology' %}class="active"{% endif %}>拓扑图</a>
-                    <a href="/upload" {% if request.path == '/upload' %}class="active"{% endif %}>📤 源文档</a>
-                </nav>
-            </div>
+    <aside class="header">
+        <div class="sidebar-header">
+            <a href="/" class="logo">📚 LLM <span>Wiki</span></a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" {% if request.path == '/' %}class="active"{% endif %}>🏠 首页</a>
+            <a href="/search" {% if request.path == '/search' %}class="active"{% endif %}>🔍 搜索</a>
+            <a href="/query" {% if request.path == '/query' %}class="active"{% endif %}>💬 智能问答</a>
+            <a href="/diagnoses" {% if request.path == '/diagnoses' %}class="active"{% endif %}>🔧 故障诊断</a>
+            <a href="/topology" {% if request.path == '/topology' %}class="active"{% endif %}>🗺 拓扑图</a>
+            <a href="/upload" {% if request.path == '/upload' %}class="active"{% endif %}>📤 源文档</a>
+        </nav>
+        <div class="sidebar-footer">
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="切换主题">🌙</button>
         </div>
-    </div>
+    </aside>
 
-    <div class="container" style="padding-top: 24px; padding-bottom: 24px;">
-        {% block content %}{% endblock %}
-    </div>
+    <div class="main-wrapper">
+        <div class="main-content">
+            {% block content %}{% endblock %}
+        </div>
 
-    <div class="footer">
-        LLM Wiki — 基础设施知识库
+        <div class="footer">
+            LLM Wiki — 基础设施知识库
+        </div>
     </div>
 
     <!-- Markdown rendering -->

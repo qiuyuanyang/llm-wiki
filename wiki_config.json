@@ -1,7 +1,7 @@
 {
   "active": {
     "provider": "vllm",
-    "model": "Qwen3.6-35B-A3B-FP8"
+    "model": "Qwen3.6-27B-FP8"
   },
   "providers": {
     "vllm": {
@@ -19,7 +19,7 @@
   },
   "llm": {
     "api_base_url": "http://172.30.3.63:8000/v1",
-    "model": "Qwen3.6-35B-A3B-FP8",
+    "model": "Qwen3.6-27B-FP8",
     "api_key": "none"
   },
   "embedding": {
